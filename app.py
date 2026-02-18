@@ -17,97 +17,120 @@ from typing import Dict, Tuple
 
 @st.cache_resource
 def load_lgbm_model():
-    """Load model LightGBM dari file .pkl — coba beberapa path"""
-    # Daftar path yang dicoba secara berurutan
-    kandidat_path = [
-        "lgbm_model_2_.pkl",                                          # direktori kerja saat ini
-        os.path.join(os.path.dirname(__file__), "lgbm_model_2_.pkl"), # sama dengan app.py
-        os.path.join(os.getcwd(), "lgbm_model_2_.pkl"),               # cwd
-        "/mount/src/reccomendation-utbk/lgbm_model_2_.pkl",           # Streamlit Cloud default
-    ]
-
-    for path in kandidat_path:
-        try:
-            if os.path.exists(path):
-                with open(path, "rb") as f:
-                    model = pickle.load(f)
-                return model, True
-        except Exception:
-            continue
-
-    return None, False
+    """Load model LightGBM dari file .pkl"""
+    model_path = os.path.join(os.path.dirname(__file__), "lgbm_model_2_.pkl")
+    try:
+        with open(model_path, "rb") as f:
+            model = pickle.load(f)
+        return model, True
+    except FileNotFoundError:
+        return None, False
+    except Exception as e:
+        st.warning(f"⚠️ Model LGBM tidak dapat dimuat: {e}. Menggunakan kalkulasi manual.")
+        return None, False
 
 
-def buat_fitur_lgbm(input_data: Dict) -> pd.DataFrame:
-    """
-    Buat 16 fitur untuk model LGBM (9 base + 7 engineered).
-    Tanpa skor TPS — bebas data leakage.
-    """
-    jam    = int(input_data["jam_belajar"])
-    hari   = int(input_data["hari_belajar"])
-    lat    = int(input_data["latihan_soal"])
-    tryout = int(input_data["frekuensi_tryout"])
-    rev    = int(input_data["review_soal"])
-    fokus  = int(input_data["fokus"])
-    pd_    = int(input_data["percaya_diri"])
-    kcm    = int(6 - input_data["kecemasan"])
-    dist   = int(6 - input_data["distraksi"])
+LABEL_STRATEGI = [
+    "Intensif & Terstruktur",
+    "Penguatan Mental",
+    "Optimasi & Review",
+    "Pertahankan & Tingkatkan"
+]
 
-    def n(x): return (x - 1) / 4
-
-    skor_belajar        = round(np.mean([n(jam), n(hari), n(lat), n(tryout), n(rev)]), 4)
-    skor_psiko          = round(np.mean([n(fokus), n(pd_), n(kcm), n(dist)]), 4)
-    konsistensi         = round(n(jam) * n(hari), 4)
-    kualitas_latihan    = round(n(lat) * n(rev), 4)
-    stabilitas_mental   = round(n(fokus) * n(pd_), 4)
-    beban_negatif       = round(n(kcm) * n(dist), 4)
-    efektivitas_belajar = round(konsistensi * stabilitas_mental, 4)
-
-    return pd.DataFrame([{
-        "Jam_Belajar"        : jam,
-        "Hari_Belajar"       : hari,
-        "Latihan_Soal"       : lat,
-        "Frekuensi_Tryout"   : tryout,
-        "Review_Soal"        : rev,
-        "Fokus"              : fokus,
-        "Percaya_Diri"       : pd_,
-        "Kecemasan_Rev"      : kcm,
-        "Distraksi_Rev"      : dist,
-        "Skor_Belajar"       : skor_belajar,
-        "Skor_Psiko"         : skor_psiko,
-        "Konsistensi"        : konsistensi,
-        "Kualitas_Latihan"   : kualitas_latihan,
-        "Stabilitas_Mental"  : stabilitas_mental,
-        "Beban_Negatif"      : beban_negatif,
-        "Efektivitas_Belajar": efektivitas_belajar,
-    }])
+DESKRIPSI_STRATEGI = {
+    "Intensif & Terstruktur": {
+        "icon": "🔴",
+        "deskripsi": "Kebiasaan belajar dan kondisi psikologis perlu ditingkatkan secara bersamaan.",
+        "tips": [
+            "Buat jadwal belajar harian yang ketat dan konsisten",
+            "Mulai dari 2 jam/hari lalu tingkatkan bertahap",
+            "Gunakan metode Pomodoro (25 menit fokus, 5 menit istirahat)",
+            "Cari teman belajar atau bergabung dengan kelompok belajar",
+            "Konsultasi dengan guru/mentor untuk panduan belajar"
+        ]
+    },
+    "Penguatan Mental": {
+        "icon": "🟠",
+        "deskripsi": "Kebiasaan belajar sudah cukup baik, namun kondisi psikologis perlu diperkuat.",
+        "tips": [
+            "Latihan mindfulness atau meditasi 10 menit sebelum belajar",
+            "Buat target kecil harian agar rasa percaya diri meningkat",
+            "Kurangi perbandingan diri dengan orang lain",
+            "Tetapkan rutinitas tidur yang baik untuk mengurangi kecemasan",
+            "Lakukan simulasi ujian (tryout) secara rutin untuk membiasakan diri"
+        ]
+    },
+    "Optimasi & Review": {
+        "icon": "🟡",
+        "deskripsi": "Kebiasaan dan mental sudah baik, tingkatkan kualitas review dan evaluasi soal.",
+        "tips": [
+            "Perbanyak review soal-soal yang pernah salah",
+            "Analisis pola kesalahan di setiap subtes",
+            "Tingkatkan frekuensi tryout menjadi minimal 2x/bulan",
+            "Buat catatan ringkasan materi yang sering keluar",
+            "Fokus pada efisiensi waktu mengerjakan soal"
+        ]
+    },
+    "Pertahankan & Tingkatkan": {
+        "icon": "🟢",
+        "deskripsi": "Kebiasaan belajar dan kondisi psikologis sudah sangat baik!",
+        "tips": [
+            "Pertahankan konsistensi dan jangan lengah",
+            "Tingkatkan target skor tryout secara bertahap",
+            "Mulai fokus pada strategi manajemen waktu saat ujian",
+            "Bantu teman yang kesulitan — mengajar memperkuat pemahaman",
+            "Jaga kesehatan fisik agar performa tetap optimal"
+        ]
+    }
+}
 
 
 def prediksi_lgbm(model, input_data: Dict) -> Dict:
     """
-    Prediksi Indeks Kesiapan Non-Akademik (0-100) menggunakan LightGBM Regressor.
-    Model hanya menggunakan kebiasaan belajar + psikologi — bebas data leakage.
+    Melakukan prediksi strategi belajar menggunakan model LightGBM Classifier.
+    
+    Fitur: 9 kolom kebiasaan belajar + psikologi (TANPA skor TPS — bebas leakage)
+    Output: Rekomendasi strategi belajar (4 kategori)
     """
     try:
-        fitur = buat_fitur_lgbm(input_data)
+        # Susun 9 fitur — tanpa skor TPS
+        fitur = pd.DataFrame([{
+            "Jam_Belajar"      : input_data["jam_belajar"],
+            "Hari_Belajar"     : input_data["hari_belajar"],
+            "Latihan_Soal"     : input_data["latihan_soal"],
+            "Frekuensi_Tryout" : input_data["frekuensi_tryout"],
+            "Review_Soal"      : input_data["review_soal"],
+            "Fokus"            : input_data["fokus"],
+            "Percaya_Diri"     : input_data["percaya_diri"],
+            "Kecemasan_Rev"    : 6 - input_data["kecemasan"],  # reverse scoring
+            "Distraksi_Rev"    : 6 - input_data["distraksi"],  # reverse scoring
+        }])
 
+        # Sesuaikan urutan kolom dengan model
         if hasattr(model, "feature_name_"):
             fitur = fitur.reindex(columns=model.feature_name_, fill_value=0)
         elif hasattr(model, "feature_names_in_"):
             fitur = fitur.reindex(columns=model.feature_names_in_, fill_value=0)
 
-        indeks = float(np.clip(model.predict(fitur)[0], 0, 100))
+        # Prediksi kelas & probabilitas
+        kode_strategi = int(model.predict(fitur)[0])
+        label_strategi = LABEL_STRATEGI[kode_strategi] if kode_strategi < len(LABEL_STRATEGI) else "Pertahankan & Tingkatkan"
 
-        if indeks >= 75:
-            kategori, icon = "Sangat Siap", "🟢"
-        elif indeks >= 55:
-            kategori, icon = "Cukup Siap", "🟡"
-        elif indeks >= 35:
-            kategori, icon = "Perlu Peningkatan", "🟠"
+        if hasattr(model, "predict_proba"):
+            proba = model.predict_proba(fitur)[0]
+            kepercayaan = float(proba[kode_strategi]) * 100
         else:
-            kategori, icon = "Butuh Perhatian Serius", "🔴"
+            proba = None
+            kepercayaan = None
 
-        return {"sukses": True, "indeks": indeks, "kategori": kategori, "icon": icon}
+        return {
+            "sukses"        : True,
+            "kode"          : kode_strategi,
+            "strategi"      : label_strategi,
+            "kepercayaan"   : kepercayaan,
+            "probabilitas"  : proba.tolist() if proba is not None else None,
+            "detail"        : DESKRIPSI_STRATEGI.get(label_strategi, {})
+        }
 
     except Exception as e:
         return {"sukses": False, "error": str(e)}
@@ -357,6 +380,41 @@ def hitung_skor_kesiapan(skor_akademik: float, skor_psikologis: float,
     else:
         # Tanpa kebiasaan belajar: 70% akademik, 30% psikologis
         return 0.7 * (skor_akademik / 10) + 0.3 * skor_psikologis
+
+
+def hitung_peluang_lolos_lgbm(skor_akademik: float, kampus: str, 
+                               lgbm_peluang: float = None) -> Tuple[float, str, str]:
+    """
+    Menghitung peluang lolos dengan mempertimbangkan prediksi model LGBM.
+    Jika LGBM tersedia, hasilnya digabungkan dengan perhitungan manual (60% LGBM, 40% manual).
+    """
+    # Hitung manual terlebih dahulu
+    peluang_manual, _, _ = hitung_peluang_lolos(skor_akademik, kampus)
+    
+    if lgbm_peluang is not None:
+        # Gabungkan: 60% dari LGBM, 40% dari formula manual
+        peluang_final = 0.6 * lgbm_peluang + 0.4 * peluang_manual
+    else:
+        peluang_final = peluang_manual
+    
+    # Tentukan kategori
+    if peluang_final >= 0.75:
+        kategori = "Sangat Tinggi"
+        keterangan = f"Prediksi AI menunjukkan peluang sangat besar untuk diterima ({peluang_final*100:.0f}%)"
+    elif peluang_final >= 0.60:
+        kategori = "Tinggi"
+        keterangan = f"Prediksi AI menunjukkan peluang cukup besar untuk diterima ({peluang_final*100:.0f}%)"
+    elif peluang_final >= 0.40:
+        kategori = "Sedang"
+        keterangan = f"Prediksi AI menunjukkan peluang moderat, perlu peningkatan ({peluang_final*100:.0f}%)"
+    elif peluang_final >= 0.25:
+        kategori = "Rendah"
+        keterangan = f"Prediksi AI menunjukkan peluang masih rendah, tingkatkan persiapan ({peluang_final*100:.0f}%)"
+    else:
+        kategori = "Sangat Rendah"
+        keterangan = f"Prediksi AI menunjukkan peluang sangat kecil, butuh perbaikan signifikan ({peluang_final*100:.0f}%)"
+    
+    return peluang_final, kategori, keterangan
 
 
 def hitung_peluang_lolos(skor_akademik: float, kampus: str) -> Tuple[float, str, str]:
@@ -874,107 +932,89 @@ def render_metric_card(title: str, value: str, description: str, icon: str):
 
 
 def render_dashboard(data: Dict):
-    """Render dashboard utama dengan integrasi model LGBM"""
+    """Render dashboard utama dengan 4 metrik terpisah"""
     st.subheader("📊 Dashboard Utama")
-
-    # === Banner status LGBM ===
-    lgbm = data.get("lgbm_hasil")
-    if lgbm and lgbm.get("sukses"):
-        indeks   = lgbm["indeks"]
-        kategori = lgbm["kategori"]
-        icon     = lgbm["icon"]
-        warna    = "green" if indeks >= 75 else "orange" if indeks >= 55 else "red"
-        st.success(
-            f"🤖 **Model AI LightGBM Aktif** &nbsp;|&nbsp; "
-            f"Indeks Kesiapan Non-Akademik: **{icon} {indeks:.1f}/100 — {kategori}**\n\n"
-            f"_Diprediksi dari kebiasaan belajar & kondisi psikologis. "
-            f"Bebas data leakage — skor TPS diproses terpisah._"
-        )
-    elif lgbm and not lgbm.get("sukses"):
-        st.warning(f"⚠️ Model LGBM gagal: {lgbm.get('error','')}. Semua metrik dihitung secara manual.")
+    
+    # Tampilkan rekomendasi strategi dari model LGBM
+    if data.get('lgbm_tersedia') and data.get('lgbm_hasil') and data['lgbm_hasil']['sukses']:
+        hasil = data['lgbm_hasil']
+        detail = hasil.get('detail', {})
+        icon = detail.get('icon', '🤖')
+        kepercayaan = f"{hasil['kepercayaan']:.1f}%" if hasil.get('kepercayaan') else ""
+        st.success(f"""
+        🤖 **Model AI LightGBM Aktif** — Rekomendasi Strategi Belajar:
+        
+        {icon} **{hasil['strategi']}** (Kepercayaan model: {kepercayaan})
+        
+        _{detail.get('deskripsi', '')}_
+        """)
+        if detail.get('tips'):
+            with st.expander("📋 Lihat Tips Strategi Belajar dari AI"):
+                for tip in detail['tips']:
+                    st.write(f"- {tip}")
+    elif data.get('lgbm_tersedia') and data.get('lgbm_hasil') and not data['lgbm_hasil']['sukses']:
+        st.warning(f"⚠️ Model LGBM gagal: {data['lgbm_hasil'].get('error', '')}. Menggunakan kalkulasi manual.")
     else:
-        st.info("📊 Model LGBM tidak ditemukan. Semua metrik dihitung secara manual.")
-
+        st.info("📊 Peluang lolos dihitung menggunakan kalkulasi skor TPS vs passing grade kampus.")
+    
+    # Info box untuk penjelasan metrik
     st.info("""
     💡 **Penjelasan Metrik:**
-    - **Peluang Lolos**: Skor TPS tertimbang vs passing grade kampus target
-    - **Indeks Kesiapan AI**: Prediksi model LightGBM dari kebiasaan & psikologi (0–100)
-    - **Stabilitas Mental**: Kemampuan perform konsisten di bawah tekanan
+    - **Peluang Lolos**: Kombinasi prediksi AI LightGBM + skor TPS vs passing grade kampus target
+    - **Stabilitas Mental**: Kemampuan kamu untuk perform konsisten di bawah tekanan
     - **Konsistensi Belajar**: Seberapa baik pola belajar mendukung peningkatan skor
-    - **Risiko**: Potensi perform di bawah kemampuan saat ujian
+    - **Risiko**: Potensi perform di bawah kemampuan saat ujian sebenarnya
     """)
-
+    
     st.markdown("---")
-
-    # Row 1: Peluang Lolos & Indeks LGBM
+    
+    # Row 1: Peluang & Stabilitas
     col1, col2 = st.columns(2)
-
+    
     with col1:
         with st.container(border=True):
             st.markdown("### 🎯 Peluang Lolos PTN")
-            warna_p = 'green' if data['peluang'] >= 0.65 else 'orange' if data['peluang'] >= 0.40 else 'red'
-            st.markdown(f"<h1 style='text-align:center;color:{warna_p};'>{data['peluang']*100:.0f}%</h1>",
-                        unsafe_allow_html=True)
+            st.markdown(f"<h1 style='text-align: center; color: {'green' if data['peluang'] >= 0.65 else 'orange' if data['peluang'] >= 0.40 else 'red'};'>{data['peluang']*100:.0f}%</h1>", unsafe_allow_html=True)
             st.markdown(f"**Kategori:** {data['peluang_kategori']}")
             st.caption(f"📊 {data['peluang_keterangan']}")
             st.caption("*Berdasarkan skor TPS tertimbang vs passing grade kampus*")
-
+    
     with col2:
         with st.container(border=True):
-            st.markdown("### 🤖 Indeks Kesiapan AI (LGBM)")
-            if lgbm and lgbm.get("sukses"):
-                indeks = lgbm["indeks"]
-                warna_i = 'green' if indeks >= 75 else 'orange' if indeks >= 55 else 'red'
-                st.markdown(f"<h1 style='text-align:center;color:{warna_i};'>{indeks:.1f}</h1>",
-                            unsafe_allow_html=True)
-                st.markdown(f"**Kategori:** {lgbm['icon']} {lgbm['kategori']}")
-                st.caption("*Prediksi AI dari kebiasaan belajar & psikologi (skala 0–100)*")
-                st.progress(indeks / 100)
-            else:
-                st.markdown("<h1 style='text-align:center;color:gray;'>N/A</h1>", unsafe_allow_html=True)
-                st.caption("*Model LGBM tidak tersedia*")
-
-    # Row 2: Stabilitas Mental & Konsistensi Belajar
-    col3, col4 = st.columns(2)
-
-    with col3:
-        with st.container(border=True):
             st.markdown("### 🧠 Stabilitas Mental")
-            warna_s = 'green' if data['stabilitas'] >= 65 else 'orange' if data['stabilitas'] >= 50 else 'red'
-            st.markdown(f"<h1 style='text-align:center;color:{warna_s};'>{data['stabilitas']:.0f}%</h1>",
-                        unsafe_allow_html=True)
+            st.markdown(f"<h1 style='text-align: center; color: {'green' if data['stabilitas'] >= 65 else 'orange' if data['stabilitas'] >= 50 else 'red'};'>{data['stabilitas']:.0f}%</h1>", unsafe_allow_html=True)
             st.markdown(f"**Kategori:** {data['stabilitas_kategori']}")
             st.caption(f"🧠 {data['stabilitas_keterangan']}")
             st.caption("*Kemampuan perform konsisten saat ujian*")
-
-    with col4:
+    
+    # Row 2: Konsistensi & Risiko
+    col3, col4 = st.columns(2)
+    
+    with col3:
         with st.container(border=True):
             st.markdown("### 📚 Konsistensi Belajar")
-            warna_k = 'green' if data['konsistensi'] >= 65 else 'orange' if data['konsistensi'] >= 50 else 'red'
-            st.markdown(f"<h1 style='text-align:center;color:{warna_k};'>{data['konsistensi']:.0f}%</h1>",
-                        unsafe_allow_html=True)
+            st.markdown(f"<h1 style='text-align: center; color: {'green' if data['konsistensi'] >= 65 else 'orange' if data['konsistensi'] >= 50 else 'red'};'>{data['konsistensi']:.0f}%</h1>", unsafe_allow_html=True)
             st.markdown(f"**Kategori:** {data['konsistensi_kategori']}")
             st.caption(f"📖 {data['konsistensi_keterangan']}")
             st.caption("*Pola belajar mendukung peningkatan skor*")
-
-    # Row 3: Risiko Underperform
-    col5, col6 = st.columns(2)
-
-    with col5:
+    
+    with col4:
         with st.container(border=True):
             st.markdown("### ⚠️ Risiko Underperform")
-            st.markdown(f"<h1 style='text-align:center;'>{data['risiko_emoji']} {data['risiko_level']}</h1>",
-                        unsafe_allow_html=True)
+            st.markdown(f"<h1 style='text-align: center;'>{data['risiko_emoji']} {data['risiko_level']}</h1>", unsafe_allow_html=True)
             st.caption(f"⚡ {data['risiko_keterangan']}")
             st.caption("*Potensi perform di bawah kemampuan*")
-
-    with col6:
-        with st.container(border=True):
-            st.markdown("### 📊 Skor Akademik Tertimbang")
-            st.markdown(f"<h1 style='text-align:center;color:#6366f1;'>{data['akademik']:.0f}</h1>",
-                        unsafe_allow_html=True)
-            st.progress(min(data['akademik'] / 900, 1.0))
-            st.caption(f"*Disesuaikan dengan bobot jurusan **{data['jurusan']}** (maks 900)*")
+    
+    # Progress bar untuk skor akademik
+    st.markdown("---")
+    st.markdown("### 📊 Skor Akademik Tertimbang")
+    col_a, col_b = st.columns([3, 1])
+    with col_a:
+        st.progress(min(data['akademik'] / 900, 1.0))
+    with col_b:
+        st.metric("Skor", f"{data['akademik']:.0f}", delta="dari 900")
+    
+    st.caption(f"Skor ini sudah disesuaikan dengan bobot jurusan **{data['jurusan']}**")
 
 
 # ====================================== 
@@ -1244,19 +1284,46 @@ def render_tab_peluang_kampus(data: Dict):
     st.markdown("### 🎯 Kesimpulan & Rekomendasi Strategi Pemilihan")
     
     if kampus_sangat_aman or kampus_aman:
+        # Tentukan label pilihan dengan aman (hindari IndexError)
+        semua_aman = kampus_sangat_aman + kampus_aman
+        
+        pilihan1_label = data['kampus']
+        if kampus_kompetitif:
+            pilihan1_label += f" atau kampus dari {kampus_kompetitif[0]['klaster']}"
+        elif kampus_aman:
+            pilihan1_label += f" atau kampus dari {kampus_aman[0]['klaster']}"
+        elif kampus_sangat_aman:
+            pilihan1_label += f" atau kampus dari {kampus_sangat_aman[0]['klaster']}"
+        
+        if kampus_aman:
+            pilihan2_label = kampus_aman[0]['kampus']
+        elif kampus_sangat_aman:
+            pilihan2_label = kampus_sangat_aman[0]['kampus']
+        else:
+            pilihan2_label = "Kampus zona aman terdekat"
+        
+        if kampus_sangat_aman:
+            pilihan3_label = kampus_sangat_aman[0]['kampus']
+        elif len(kampus_aman) > 1:
+            pilihan3_label = kampus_aman[-1]['kampus']
+        elif kampus_aman:
+            pilihan3_label = kampus_aman[0]['kampus']
+        else:
+            pilihan3_label = "Kampus dari klaster lebih rendah"
+
         st.success(f"""
         **✅ Kabar Baik!** Kamu memiliki **{len(kampus_sangat_aman) + len(kampus_aman)} kampus** 
         dalam zona aman dengan skor saat ini.
         
         **Strategi Pemilihan yang Disarankan:**
         
-        📌 **Pilihan 1 (Ambisius):** {data['kampus']} atau kampus dari {kampus_kompetitif[0]['klaster'] if kampus_kompetitif else kampus_aman[0]['klaster']}  
+        📌 **Pilihan 1 (Ambisius):** {pilihan1_label}  
         → Kampus target impian, meski sedikit menantang
         
-        📌 **Pilihan 2 (Realistis):** {kampus_aman[0]['kampus'] if kampus_aman else kampus_sangat_aman[0]['kampus']}  
+        📌 **Pilihan 2 (Realistis):** {pilihan2_label}  
         → Peluang tinggi dengan skor saat ini
         
-        📌 **Pilihan 3 (Aman):** {kampus_sangat_aman[0]['kampus'] if kampus_sangat_aman else (kampus_aman[-1]['kampus'] if len(kampus_aman) > 1 else 'Kampus dari klaster lebih rendah')}  
+        📌 **Pilihan 3 (Aman):** {pilihan3_label}  
         → Safety net untuk memastikan lolos PTN
         
         **💡 Tips:** Gunakan strategi ini untuk memaksimalkan peluang sambil tetap punya opsi aman!
@@ -1279,23 +1346,35 @@ def render_tab_peluang_kampus(data: Dict):
         **🚨 Penting:** Dengan peningkatan skor yang konsisten, peluang kamu akan naik signifikan!
         """)
     else:
-        st.error(f"""
+        # Pastikan kampus_berisiko_sorted tersedia
+        kampus_berisiko_sorted = sorted(kampus_berisiko, key=lambda x: x['skor_min']) if kampus_berisiko else []
+        
+        if not kampus_berisiko_sorted:
+            st.error("**🔴 Data kampus tidak tersedia.** Silakan coba lagi.")
+        else:
+            pilihan1 = kampus_berisiko_sorted[0]['kampus']
+            pilihan2 = kampus_berisiko_sorted[1]['kampus'] if len(kampus_berisiko_sorted) > 1 else 'Kampus klaster 4'
+            pilihan3 = kampus_berisiko_sorted[2]['kampus'] if len(kampus_berisiko_sorted) > 2 else 'Kampus klaster 4'
+            gap_min  = kampus_berisiko_sorted[0]['skor_min'] - skor_akademik
+            skor_target = kampus_berisiko_sorted[0]['skor_min']
+
+            st.error(f"""
         **🔴 Perhatian Serius Diperlukan** - Skor saat ini masih di bawah zona aman semua kampus.
         
         **Strategi Pemilihan & Peningkatan:**
         
         🎯 **Target Jangka Pendek (1-2 bulan):**
-        - Tingkatkan skor minimal +{kampus_berisiko_sorted[0]['skor_min'] - skor_akademik:.0f} poin
-        - Fokus pada {kampus_berisiko_sorted[0]['kampus']} sebagai target terdekat
+        - Tingkatkan skor minimal +{gap_min:.0f} poin
+        - Fokus pada {pilihan1} sebagai target terdekat
         
         🎯 **Target Jangka Menengah (3-4 bulan):**
-        - Capai skor {kampus_berisiko_sorted[0]['skor_min']} untuk masuk zona aman Klaster 4
+        - Capai skor {skor_target} untuk masuk zona aman Klaster 4
         - Belajar intensif 5-6 jam/hari
         
         📌 **Rekomendasi Pilihan Sementara:**
-        1. **Pilihan 1:** {kampus_berisiko_sorted[0]['kampus']} (target terdekat)
-        2. **Pilihan 2:** {kampus_berisiko_sorted[1]['kampus'] if len(kampus_berisiko_sorted) > 1 else 'Kampus klaster 4'}
-        3. **Pilihan 3:** {kampus_berisiko_sorted[2]['kampus'] if len(kampus_berisiko_sorted) > 2 else 'Kampus klaster 4'}
+        1. **Pilihan 1:** {pilihan1} (target terdekat)
+        2. **Pilihan 2:** {pilihan2}
+        3. **Pilihan 3:** {pilihan3}
         
         **💪 Motivasi:** Gap masih bisa ditutup! Fokus, konsisten, dan evaluasi rutin adalah kuncinya.
         """)
@@ -1754,117 +1833,128 @@ def render_tab_jurusan(data: Dict):
 
 def main():
     """Fungsi utama aplikasi"""
+    # Setup
     setup_page()
-
+    
     # Load model LGBM
     lgbm_model, lgbm_tersedia = load_lgbm_model()
-
-    # Debug info di sidebar
-    with st.sidebar:
-        st.divider()
-        if lgbm_tersedia:
-            st.success("🤖 Model LGBM: Aktif ✅")
-        else:
-            st.error("🤖 Model LGBM: Tidak ditemukan ❌")
-            with st.expander("🔍 Debug Info"):
-                st.code(f"cwd: {os.getcwd()}\n"
-                        f"__file__: {os.path.abspath(__file__)}\n"
-                        f"files: {os.listdir(os.getcwd())}")
-
+    
+    # Initialize session state untuk menyimpan status prediksi
     if 'prediksi_clicked' not in st.session_state:
         st.session_state.prediksi_clicked = False
-
+    
+    # Kumpulkan input dari sidebar
     input_data = render_sidebar()
-
+    
+    # Update session state jika tombol diklik
     if input_data['cek_prediksi']:
         st.session_state.prediksi_clicked = True
-
+    
+    # Render header dengan kontrol greeting
     render_header(input_data['nama'], st.session_state.prediksi_clicked)
-
+    
+    # Tampilkan hasil hanya jika tombol sudah diklik
     if st.session_state.prediksi_clicked:
-
-        # === Hitung metrik manual ===
+        # Hitung semua metrik
         skor_akademik = hitung_skor_akademik(
             input_data['jurusan'],
             input_data['PU'], input_data['PPU'], input_data['PBM'],
             input_data['PK'], input_data['LBI'], input_data['LBE'], input_data['PM']
         )
-
-        peluang_lolos, peluang_kategori, peluang_ket = hitung_peluang_lolos(
-            skor_akademik, input_data['kampus']
-        )
-
-        stabilitas_mental, stabilitas_kategori, stabilitas_ket = hitung_stabilitas_mental(
-            input_data['fokus'], input_data['percaya_diri'],
-            input_data['kecemasan'], input_data['distraksi']
-        )
-
-        konsistensi_belajar, konsistensi_kategori, konsistensi_ket = hitung_indeks_konsistensi(
-            input_data['jam_belajar'], input_data['hari_belajar'],
-            input_data['latihan_soal'], input_data['frekuensi_tryout'],
-            input_data['review_soal']
-        )
-
-        risiko_level, risiko_emoji, risiko_ket = hitung_risiko_underperform(
-            stabilitas_mental, konsistensi_belajar
-        )
-
-        skor_kebiasaan, kategori_kebiasaan, ket_kebiasaan, emoji_kebiasaan = hitung_skor_kebiasaan_belajar(
-            input_data['jam_belajar'], input_data['hari_belajar'],
-            input_data['latihan_soal'], input_data['frekuensi_tryout'],
-            input_data['review_soal']
-        )
-
-        # === Prediksi LGBM ===
+        
+        # ===== PREDIKSI LGBM =====
         lgbm_hasil = None
         if lgbm_tersedia and lgbm_model is not None:
             lgbm_hasil = prediksi_lgbm(lgbm_model, input_data)
 
-        # === Gabungkan semua data ===
+        # Peluang lolos tetap dihitung dari formula manual (skor TPS vs passing grade)
+        peluang_lolos, peluang_kategori, peluang_ket = hitung_peluang_lolos(
+            skor_akademik,
+            input_data['kampus']
+        )
+        
+        stabilitas_mental, stabilitas_kategori, stabilitas_ket = hitung_stabilitas_mental(
+            input_data['fokus'],
+            input_data['percaya_diri'],
+            input_data['kecemasan'],
+            input_data['distraksi']
+        )
+        
+        konsistensi_belajar, konsistensi_kategori, konsistensi_ket = hitung_indeks_konsistensi(
+            input_data['jam_belajar'],
+            input_data['hari_belajar'],
+            input_data['latihan_soal'],
+            input_data['frekuensi_tryout'],
+            input_data['review_soal']
+        )
+        
+        risiko_level, risiko_emoji, risiko_ket = hitung_risiko_underperform(
+            stabilitas_mental,
+            konsistensi_belajar
+        )
+        
+        # Backward compatibility: hitung skor kebiasaan untuk tab analisis
+        skor_kebiasaan, kategori_kebiasaan, ket_kebiasaan, emoji_kebiasaan = hitung_skor_kebiasaan_belajar(
+            input_data['jam_belajar'],
+            input_data['hari_belajar'],
+            input_data['latihan_soal'],
+            input_data['frekuensi_tryout'],
+            input_data['review_soal']
+        )
+        
+        # Gabungkan semua data
         hasil_data = {
             **input_data,
-            'akademik'             : skor_akademik,
-            'peluang'              : peluang_lolos,
-            'peluang_kategori'     : peluang_kategori,
-            'peluang_keterangan'   : peluang_ket,
-            'stabilitas'           : stabilitas_mental,
-            'stabilitas_kategori'  : stabilitas_kategori,
+            'akademik': skor_akademik,
+            'peluang': peluang_lolos,
+            'peluang_kategori': peluang_kategori,
+            'peluang_keterangan': peluang_ket,
+            'stabilitas': stabilitas_mental,
+            'stabilitas_kategori': stabilitas_kategori,
             'stabilitas_keterangan': stabilitas_ket,
-            'konsistensi'          : konsistensi_belajar,
-            'konsistensi_kategori' : konsistensi_kategori,
+            'konsistensi': konsistensi_belajar,
+            'konsistensi_kategori': konsistensi_kategori,
             'konsistensi_keterangan': konsistensi_ket,
-            'risiko_level'         : risiko_level,
-            'risiko_emoji'         : risiko_emoji,
-            'risiko_keterangan'    : risiko_ket,
-            'kebiasaan'            : skor_kebiasaan,
-            'kebiasaan_kategori'   : kategori_kebiasaan,
-            'kebiasaan_keterangan' : ket_kebiasaan,
-            'kebiasaan_emoji'      : emoji_kebiasaan,
-            'lgbm_tersedia'        : lgbm_tersedia,
-            'lgbm_hasil'           : lgbm_hasil,
+            'risiko_level': risiko_level,
+            'risiko_emoji': risiko_emoji,
+            'risiko_keterangan': risiko_ket,
+            # Backward compatibility untuk tab yang masih menggunakan
+            'kebiasaan': skor_kebiasaan,
+            'kebiasaan_kategori': kategori_kebiasaan,
+            'kebiasaan_keterangan': ket_kebiasaan,
+            'kebiasaan_emoji': emoji_kebiasaan,
+            # LGBM info
+            'lgbm_tersedia': lgbm_tersedia,
+            'lgbm_hasil'   : lgbm_hasil,
         }
-
-        # === Render UI ===
+        
+        # Render dashboard
         render_dashboard(hasil_data)
-
+        
+        # Render tabs
         tab1, tab2, tab3, tab4 = st.tabs([
             "🎯 Peluang Kampus",
             "🧠 Analisis",
             "🚀 Strategi",
             "🎓 Jurusan"
         ])
-
+        
         with tab1:
             render_tab_peluang_kampus(hasil_data)
+        
         with tab2:
             render_tab_analisis(hasil_data)
+        
         with tab3:
             render_tab_strategi(hasil_data)
+        
         with tab4:
             render_tab_jurusan(hasil_data)
-
+        
+        # Footer
         st.divider()
-
+        
+        # Pesan penutup personal
         if input_data['nama']:
             st.success(f"""
             💪 **Pesan untuk {input_data['nama']}:**
@@ -1873,28 +1963,36 @@ def main():
             akan membawa dampak besar untuk masa depan. Tetap konsisten, percaya pada proses, dan jangan pernah 
             menyerah pada impian kamu!
             
+            Ingat: Kesuksesan bukan hanya tentang nilai, tapi tentang bagaimana kamu berkembang menjadi 
+            pribadi yang lebih baik dalam prosesnya. Saya akan selalu di sini untuk mendampingi perjalanan kamu. 
+            
             **Semangat, {input_data['nama']}! Kamu pasti bisa! 🚀✨**
             """)
-
-        st.caption("🤖 AI Education Intelligence System • LightGBM Integrated • Bebas Data Leakage")
-
+        
+        st.caption("🤖 AI Education Intelligence System • Enhanced Version")
+        st.caption("Dikembangkan dengan pendekatan holistik untuk persiapan UTBK yang optimal")
     else:
+        # Tampilkan instruksi jika belum klik prediksi
         st.info("""
         📌 **Langkah Selanjutnya:**
         
         Silakan lengkapi semua informasi di sidebar, lalu klik tombol **"CEK PREDIKSI SEKARANG"** 
         untuk melihat hasil analisis lengkap kesiapan UTBK kamu.
         """)
-
+        
+        # Tampilkan preview fitur
         st.markdown("### ✨ Yang Akan Kamu Dapatkan:")
+        
         col1, col2, col3 = st.columns(3)
+        
         with col1:
             st.markdown("""
             #### 📊 Dashboard Komprehensif
             - Skor kesiapan keseluruhan
-            - Indeks Kesiapan AI (LGBM)
             - Estimasi peluang kelulusan
+            - Analisis akademik mendalam
             """)
+        
         with col2:
             st.markdown("""
             #### 🧠 Analisis Mendalam
@@ -1902,6 +2000,7 @@ def main():
             - Evaluasi psikologis
             - Identifikasi risiko
             """)
+        
         with col3:
             st.markdown("""
             #### 🎯 Rekomendasi Praktis
@@ -1909,9 +2008,9 @@ def main():
             - Timeline persiapan
             - Alternatif jurusan
             """)
-
+        
         st.divider()
-        st.caption("🤖 AI Education Intelligence System • LightGBM Integrated • Bebas Data Leakage")
+        st.caption("🤖 AI Education Intelligence System • Enhanced Version")
 
 
 # ====================================== 
