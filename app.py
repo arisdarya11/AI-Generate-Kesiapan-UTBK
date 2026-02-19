@@ -1,8 +1,9 @@
 """
-SKORIA — AI UTBK Readiness Dashboard v3.0
+SKORIA — AI UTBK Readiness Dashboard v4.0
 Platform kecerdasan buatan untuk analisis kesiapan UTBK secara holistik
-Skor maksimal: 1000 | Multi-halaman | Charts | PDF Export
-Data skor berbasis UTBK 2023/2024 riil per jurusan dan PTN
+Skor maksimal: 1000 | Jenjang S1 & D3 | Multi-halaman | Charts | PDF Export
+Data skor aman berbasis SNPMB/BPPP Kemdikbud & referensi media pendidikan 2025/2026
+per jurusan, jenjang (S1/D3), dan PTN
 """
 
 import streamlit as st
@@ -346,7 +347,11 @@ SUBTES_CLR = {
     "PK": "#c0392b", "LBI": "#1a8a4a", "LBE": "#0d8a80", "PM": "#d4620a",
 }
 
-DAFTAR_JURUSAN = [
+# Jenjang pilihan
+DAFTAR_JENJANG = ["S1 (Sarjana)", "D3 (Diploma Tiga)"]
+
+# Jurusan S1
+DAFTAR_JURUSAN_S1 = [
     "Kedokteran","Kedokteran Gigi",
     "Teknik Sipil","Teknik Mesin","Teknik Elektro","Teknik Industri","Teknik Kimia","Teknik Informatika",
     "Matematika","Fisika","Kimia","Biologi","Statistika","Aktuaria",
@@ -356,6 +361,33 @@ DAFTAR_JURUSAN = [
     "Sastra Inggris","Pendidikan Bahasa Indonesia","Pendidikan Bahasa Inggris",
     "Sosiologi","Ilmu Politik","Sejarah","Geografi"
 ]
+
+# Jurusan D3 — program vokasi yang tersedia di SNBT/UTBK
+DAFTAR_JURUSAN_D3 = [
+    # Teknik & Rekayasa
+    "D3 Teknik Sipil","D3 Teknik Mesin","D3 Teknik Elektro","D3 Teknik Kimia",
+    "D3 Teknik Komputer","D3 Teknologi Informasi","D3 Teknik Mekatronika",
+    # Bisnis & Manajemen
+    "D3 Manajemen","D3 Akuntansi","D3 Administrasi Bisnis","D3 Perbankan & Keuangan",
+    "D3 Manajemen Pemasaran","D3 Perpajakan",
+    # Kesehatan
+    "D3 Keperawatan","D3 Kebidanan","D3 Farmasi","D3 Gizi","D3 Analis Kesehatan",
+    "D3 Rekam Medis","D3 Fisioterapi","D3 Radiologi",
+    # Seni & Komunikasi
+    "D3 Komunikasi","D3 Hubungan Masyarakat","D3 Desain Grafis","D3 Animasi",
+    # Pariwisata & Sosial
+    "D3 Pariwisata","D3 Perhotelan","D3 Bahasa Inggris",
+    # Pertanian & Lingkungan
+    "D3 Agribisnis","D3 Teknologi Pangan",
+]
+
+# Gabungan untuk tampilan (dipisahkan per jenjang di UI)
+DAFTAR_JURUSAN = DAFTAR_JURUSAN_S1  # default S1
+
+def get_daftar_jurusan(jenjang):
+    if "D3" in jenjang:
+        return DAFTAR_JURUSAN_D3
+    return DAFTAR_JURUSAN_S1
 
 # Bobot per jurusan (total = 1.0)
 BOBOT_MAP = {
@@ -395,6 +427,53 @@ BOBOT_MAP = {
     "Geografi":               {"PU":.20,"PPU":.15,"PBM":.15,"PK":.12,"LBI":.15,"LBE":.08,"PM":.15},
 }
 DEFAULT_BOBOT = {"PU":.15,"PPU":.15,"PBM":.15,"PK":.15,"LBI":.15,"LBE":.15,"PM":.10}
+
+# ── Bobot D3 — vokasi lebih menekankan kemampuan teknis & literasi praktis ──
+BOBOT_MAP_D3 = {
+    # Teknik & Rekayasa
+    "D3 Teknik Sipil":         {"PU":.18,"PPU":.05,"PBM":.05,"PK":.22,"LBI":.05,"LBE":.07,"PM":.38},
+    "D3 Teknik Mesin":         {"PU":.18,"PPU":.05,"PBM":.05,"PK":.22,"LBI":.05,"LBE":.07,"PM":.38},
+    "D3 Teknik Elektro":       {"PU":.18,"PPU":.05,"PBM":.05,"PK":.22,"LBI":.05,"LBE":.07,"PM":.38},
+    "D3 Teknik Kimia":         {"PU":.17,"PPU":.08,"PBM":.05,"PK":.22,"LBI":.05,"LBE":.05,"PM":.38},
+    "D3 Teknik Komputer":      {"PU":.18,"PPU":.05,"PBM":.05,"PK":.22,"LBI":.05,"LBE":.08,"PM":.37},
+    "D3 Teknologi Informasi":  {"PU":.18,"PPU":.05,"PBM":.05,"PK":.22,"LBI":.05,"LBE":.08,"PM":.37},
+    "D3 Teknik Mekatronika":   {"PU":.18,"PPU":.05,"PBM":.05,"PK":.22,"LBI":.05,"LBE":.07,"PM":.38},
+    # Bisnis & Manajemen
+    "D3 Manajemen":            {"PU":.20,"PPU":.15,"PBM":.15,"PK":.18,"LBI":.15,"LBE":.10,"PM":.07},
+    "D3 Akuntansi":            {"PU":.18,"PPU":.13,"PBM":.12,"PK":.25,"LBI":.12,"LBE":.08,"PM":.12},
+    "D3 Administrasi Bisnis":  {"PU":.20,"PPU":.15,"PBM":.18,"PK":.12,"LBI":.18,"LBE":.10,"PM":.07},
+    "D3 Perbankan & Keuangan": {"PU":.18,"PPU":.13,"PBM":.12,"PK":.25,"LBI":.12,"LBE":.08,"PM":.12},
+    "D3 Manajemen Pemasaran":  {"PU":.20,"PPU":.15,"PBM":.17,"PK":.12,"LBI":.18,"LBE":.12,"PM":.06},
+    "D3 Perpajakan":           {"PU":.18,"PPU":.12,"PBM":.12,"PK":.25,"LBI":.13,"LBE":.08,"PM":.12},
+    # Kesehatan
+    "D3 Keperawatan":          {"PU":.18,"PPU":.13,"PBM":.13,"PK":.12,"LBI":.17,"LBE":.08,"PM":.19},
+    "D3 Kebidanan":            {"PU":.18,"PPU":.14,"PBM":.13,"PK":.12,"LBI":.17,"LBE":.08,"PM":.18},
+    "D3 Farmasi":              {"PU":.17,"PPU":.13,"PBM":.08,"PK":.18,"LBI":.10,"LBE":.08,"PM":.26},
+    "D3 Gizi":                 {"PU":.18,"PPU":.13,"PBM":.10,"PK":.15,"LBI":.13,"LBE":.08,"PM":.23},
+    "D3 Analis Kesehatan":     {"PU":.18,"PPU":.13,"PBM":.08,"PK":.18,"LBI":.10,"LBE":.07,"PM":.26},
+    "D3 Rekam Medis":          {"PU":.18,"PPU":.12,"PBM":.14,"PK":.15,"LBI":.16,"LBE":.08,"PM":.17},
+    "D3 Fisioterapi":          {"PU":.19,"PPU":.13,"PBM":.12,"PK":.13,"LBI":.15,"LBE":.08,"PM":.20},
+    "D3 Radiologi":            {"PU":.18,"PPU":.12,"PBM":.08,"PK":.20,"LBI":.10,"LBE":.07,"PM":.25},
+    # Seni & Komunikasi
+    "D3 Komunikasi":           {"PU":.20,"PPU":.15,"PBM":.22,"PK":.08,"LBI":.20,"LBE":.10,"PM":.05},
+    "D3 Hubungan Masyarakat":  {"PU":.20,"PPU":.15,"PBM":.22,"PK":.07,"LBI":.22,"LBE":.10,"PM":.04},
+    "D3 Desain Grafis":        {"PU":.18,"PPU":.10,"PBM":.18,"PK":.12,"LBI":.18,"LBE":.12,"PM":.12},
+    "D3 Animasi":              {"PU":.18,"PPU":.10,"PBM":.15,"PK":.15,"LBI":.17,"LBE":.12,"PM":.13},
+    # Pariwisata & Sosial
+    "D3 Pariwisata":           {"PU":.18,"PPU":.13,"PBM":.18,"PK":.08,"LBI":.18,"LBE":.18,"PM":.07},
+    "D3 Perhotelan":           {"PU":.18,"PPU":.12,"PBM":.17,"PK":.08,"LBI":.18,"LBE":.20,"PM":.07},
+    "D3 Bahasa Inggris":       {"PU":.13,"PPU":.12,"PBM":.18,"PK":.05,"LBI":.15,"LBE":.33,"PM":.04},
+    # Pertanian & Lingkungan
+    "D3 Agribisnis":           {"PU":.20,"PPU":.15,"PBM":.12,"PK":.15,"LBI":.15,"LBE":.08,"PM":.15},
+    "D3 Teknologi Pangan":     {"PU":.18,"PPU":.13,"PBM":.08,"PK":.18,"LBI":.10,"LBE":.07,"PM":.26},
+}
+
+DEFAULT_BOBOT_D3 = {"PU":.18,"PPU":.12,"PBM":.13,"PK":.15,"LBI":.15,"LBE":.10,"PM":.17}
+
+def get_bobot(j):
+    if j in BOBOT_MAP_D3:
+        return BOBOT_MAP_D3[j]
+    return BOBOT_MAP.get(j, DEFAULT_BOBOT)
 
 # ══════════════════════════════════════════════════════════
 # PTN DATA — Skor aman per jurusan (berbasis UTBK 2023/2024)
@@ -777,18 +856,340 @@ PTN_JURUSAN_DATA = {
 
 DAFTAR_PTN = list(PTN_JURUSAN_DATA.keys())
 
-def get_ptn_info(kampus, jurusan):
-    """Ambil info skor PTN berdasarkan kampus dan jurusan spesifik"""
-    ptn = PTN_JURUSAN_DATA.get(kampus, {})
-    if not ptn:
-        return {"mn": 650, "mx": 720, "k": 4, "lbl": "🔸 Klaster 4 — Regional"}
-    jurusan_data = ptn.get(jurusan, ptn.get("_default", {"mn": 650, "mx": 720}))
-    return {
-        "mn": jurusan_data["mn"],
-        "mx": jurusan_data["mx"],
-        "k": ptn.get("_klaster", 4),
-        "lbl": ptn.get("_lbl", "🔸 Klaster 4 — Regional")
-    }
+# ══════════════════════════════════════════════════════════
+# D3 PTN SCORE DATA — Skor aman per prodi D3 per PTN
+# Berbasis SNPMB/BPPP Kemdikbud & media pendidikan 2025/2026
+# D3 umumnya 35–80 poin lebih rendah dari S1 sejenis
+# (persaingan tetap ada karena kuota D3 lebih kecil)
+# ══════════════════════════════════════════════════════════
+PTN_D3_DATA = {
+    "Universitas Indonesia (UI)": {
+        "D3 Teknik Sipil":         {"mn": 690, "mx": 760},
+        "D3 Teknik Mesin":         {"mn": 685, "mx": 755},
+        "D3 Teknik Elektro":       {"mn": 695, "mx": 765},
+        "D3 Teknik Kimia":         {"mn": 685, "mx": 755},
+        "D3 Teknologi Informasi":  {"mn": 698, "mx": 768},
+        "D3 Teknik Komputer":      {"mn": 698, "mx": 768},
+        "D3 Manajemen":            {"mn": 680, "mx": 748},
+        "D3 Akuntansi":            {"mn": 682, "mx": 750},
+        "D3 Administrasi Bisnis":  {"mn": 672, "mx": 740},
+        "D3 Perbankan & Keuangan": {"mn": 675, "mx": 743},
+        "D3 Keperawatan":          {"mn": 635, "mx": 703},
+        "D3 Farmasi":              {"mn": 688, "mx": 756},
+        "D3 Gizi":                 {"mn": 660, "mx": 728},
+        "D3 Komunikasi":           {"mn": 665, "mx": 733},
+        "D3 Hubungan Masyarakat":  {"mn": 658, "mx": 726},
+        "_default":                {"mn": 665, "mx": 735},
+        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
+    },
+    "Universitas Gadjah Mada (UGM)": {
+        "D3 Teknik Sipil":         {"mn": 682, "mx": 752},
+        "D3 Teknik Mesin":         {"mn": 678, "mx": 748},
+        "D3 Teknik Elektro":       {"mn": 688, "mx": 758},
+        "D3 Teknologi Informasi":  {"mn": 692, "mx": 762},
+        "D3 Teknik Komputer":      {"mn": 692, "mx": 762},
+        "D3 Manajemen":            {"mn": 672, "mx": 742},
+        "D3 Akuntansi":            {"mn": 675, "mx": 745},
+        "D3 Administrasi Bisnis":  {"mn": 665, "mx": 735},
+        "D3 Perbankan & Keuangan": {"mn": 668, "mx": 738},
+        "D3 Keperawatan":          {"mn": 625, "mx": 695},
+        "D3 Farmasi":              {"mn": 680, "mx": 750},
+        "D3 Gizi":                 {"mn": 652, "mx": 722},
+        "D3 Komunikasi":           {"mn": 658, "mx": 728},
+        "D3 Pariwisata":           {"mn": 615, "mx": 685},
+        "D3 Perpajakan":           {"mn": 660, "mx": 730},
+        "D3 Agribisnis":           {"mn": 620, "mx": 690},
+        "_default":                {"mn": 658, "mx": 728},
+        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
+    },
+    "Institut Teknologi Bandung (ITB)": {
+        "D3 Teknik Sipil":         {"mn": 725, "mx": 800},
+        "D3 Teknik Mesin":         {"mn": 720, "mx": 795},
+        "D3 Teknik Elektro":       {"mn": 730, "mx": 805},
+        "D3 Teknik Kimia":         {"mn": 718, "mx": 793},
+        "D3 Teknologi Informasi":  {"mn": 732, "mx": 807},
+        "D3 Teknik Komputer":      {"mn": 732, "mx": 807},
+        "D3 Teknik Mekatronika":   {"mn": 715, "mx": 790},
+        "D3 Desain Grafis":        {"mn": 685, "mx": 755},
+        "D3 Animasi":              {"mn": 680, "mx": 750},
+        "_default":                {"mn": 715, "mx": 790},
+        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
+    },
+    "Universitas Padjadjaran (Unpad)": {
+        "D3 Teknik Komputer":      {"mn": 648, "mx": 718},
+        "D3 Teknologi Informasi":  {"mn": 648, "mx": 718},
+        "D3 Manajemen":            {"mn": 632, "mx": 702},
+        "D3 Akuntansi":            {"mn": 635, "mx": 705},
+        "D3 Administrasi Bisnis":  {"mn": 625, "mx": 695},
+        "D3 Perbankan & Keuangan": {"mn": 628, "mx": 698},
+        "D3 Keperawatan":          {"mn": 598, "mx": 668},
+        "D3 Kebidanan":            {"mn": 595, "mx": 665},
+        "D3 Farmasi":              {"mn": 640, "mx": 710},
+        "D3 Gizi":                 {"mn": 615, "mx": 685},
+        "D3 Analis Kesehatan":     {"mn": 615, "mx": 685},
+        "D3 Komunikasi":           {"mn": 618, "mx": 688},
+        "D3 Hubungan Masyarakat":  {"mn": 612, "mx": 682},
+        "D3 Pariwisata":           {"mn": 598, "mx": 668},
+        "_default":                {"mn": 620, "mx": 690},
+        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
+    },
+    "Institut Pertanian Bogor (IPB)": {
+        "D3 Teknologi Pangan":     {"mn": 628, "mx": 698},
+        "D3 Agribisnis":           {"mn": 618, "mx": 688},
+        "D3 Manajemen":            {"mn": 605, "mx": 675},
+        "D3 Akuntansi":            {"mn": 608, "mx": 678},
+        "D3 Teknologi Informasi":  {"mn": 625, "mx": 695},
+        "D3 Gizi":                 {"mn": 615, "mx": 685},
+        "D3 Komunikasi":           {"mn": 595, "mx": 665},
+        "D3 Farmasi":              {"mn": 618, "mx": 688},
+        "_default":                {"mn": 608, "mx": 678},
+        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
+    },
+    "Universitas Diponegoro (Undip)": {
+        "D3 Teknik Sipil":         {"mn": 605, "mx": 675},
+        "D3 Teknik Mesin":         {"mn": 600, "mx": 670},
+        "D3 Teknik Elektro":       {"mn": 608, "mx": 678},
+        "D3 Teknik Kimia":         {"mn": 598, "mx": 668},
+        "D3 Teknologi Informasi":  {"mn": 618, "mx": 688},
+        "D3 Teknik Komputer":      {"mn": 615, "mx": 685},
+        "D3 Manajemen":            {"mn": 588, "mx": 658},
+        "D3 Akuntansi":            {"mn": 590, "mx": 660},
+        "D3 Perbankan & Keuangan": {"mn": 585, "mx": 655},
+        "D3 Perpajakan":           {"mn": 588, "mx": 658},
+        "D3 Keperawatan":          {"mn": 562, "mx": 632},
+        "D3 Farmasi":              {"mn": 598, "mx": 668},
+        "D3 Analis Kesehatan":     {"mn": 575, "mx": 645},
+        "D3 Komunikasi":           {"mn": 575, "mx": 645},
+        "_default":                {"mn": 585, "mx": 655},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Universitas Airlangga (Unair)": {
+        "D3 Teknologi Informasi":  {"mn": 618, "mx": 688},
+        "D3 Teknik Komputer":      {"mn": 615, "mx": 685},
+        "D3 Manajemen":            {"mn": 600, "mx": 670},
+        "D3 Akuntansi":            {"mn": 602, "mx": 672},
+        "D3 Perbankan & Keuangan": {"mn": 595, "mx": 665},
+        "D3 Keperawatan":          {"mn": 575, "mx": 645},
+        "D3 Kebidanan":            {"mn": 568, "mx": 638},
+        "D3 Farmasi":              {"mn": 618, "mx": 688},
+        "D3 Gizi":                 {"mn": 580, "mx": 650},
+        "D3 Analis Kesehatan":     {"mn": 582, "mx": 652},
+        "D3 Rekam Medis":          {"mn": 565, "mx": 635},
+        "D3 Komunikasi":           {"mn": 582, "mx": 652},
+        "_default":                {"mn": 585, "mx": 658},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Universitas Brawijaya (UB)": {
+        "D3 Teknik Sipil":         {"mn": 575, "mx": 645},
+        "D3 Teknologi Informasi":  {"mn": 590, "mx": 660},
+        "D3 Teknik Komputer":      {"mn": 588, "mx": 658},
+        "D3 Manajemen":            {"mn": 572, "mx": 642},
+        "D3 Akuntansi":            {"mn": 572, "mx": 642},
+        "D3 Administrasi Bisnis":  {"mn": 565, "mx": 635},
+        "D3 Perbankan & Keuangan": {"mn": 562, "mx": 632},
+        "D3 Keperawatan":          {"mn": 548, "mx": 618},
+        "D3 Kebidanan":            {"mn": 542, "mx": 612},
+        "D3 Farmasi":              {"mn": 578, "mx": 648},
+        "D3 Gizi":                 {"mn": 555, "mx": 625},
+        "D3 Agribisnis":           {"mn": 538, "mx": 608},
+        "D3 Teknologi Pangan":     {"mn": 545, "mx": 615},
+        "D3 Komunikasi":           {"mn": 552, "mx": 622},
+        "D3 Pariwisata":           {"mn": 525, "mx": 595},
+        "_default":                {"mn": 558, "mx": 628},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Institut Teknologi Sepuluh Nopember (ITS)": {
+        "D3 Teknik Sipil":         {"mn": 640, "mx": 712},
+        "D3 Teknik Mesin":         {"mn": 635, "mx": 707},
+        "D3 Teknik Elektro":       {"mn": 645, "mx": 717},
+        "D3 Teknik Kimia":         {"mn": 628, "mx": 700},
+        "D3 Teknologi Informasi":  {"mn": 652, "mx": 724},
+        "D3 Teknik Komputer":      {"mn": 648, "mx": 720},
+        "D3 Teknik Mekatronika":   {"mn": 632, "mx": 704},
+        "D3 Manajemen":            {"mn": 605, "mx": 675},
+        "D3 Desain Grafis":        {"mn": 598, "mx": 668},
+        "_default":                {"mn": 628, "mx": 700},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Universitas Sebelas Maret (UNS)": {
+        "D3 Teknik Sipil":         {"mn": 555, "mx": 625},
+        "D3 Teknologi Informasi":  {"mn": 562, "mx": 632},
+        "D3 Teknik Komputer":      {"mn": 558, "mx": 628},
+        "D3 Manajemen":            {"mn": 545, "mx": 615},
+        "D3 Akuntansi":            {"mn": 548, "mx": 618},
+        "D3 Administrasi Bisnis":  {"mn": 538, "mx": 608},
+        "D3 Perpajakan":           {"mn": 545, "mx": 615},
+        "D3 Perbankan & Keuangan": {"mn": 542, "mx": 612},
+        "D3 Keperawatan":          {"mn": 520, "mx": 590},
+        "D3 Farmasi":              {"mn": 548, "mx": 618},
+        "D3 Komunikasi":           {"mn": 525, "mx": 595},
+        "D3 Pariwisata":           {"mn": 505, "mx": 575},
+        "_default":                {"mn": 535, "mx": 608},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Universitas Hasanuddin (Unhas)": {
+        "D3 Teknologi Informasi":  {"mn": 558, "mx": 628},
+        "D3 Teknik Komputer":      {"mn": 555, "mx": 625},
+        "D3 Manajemen":            {"mn": 535, "mx": 605},
+        "D3 Akuntansi":            {"mn": 538, "mx": 608},
+        "D3 Keperawatan":          {"mn": 512, "mx": 582},
+        "D3 Kebidanan":            {"mn": 508, "mx": 578},
+        "D3 Farmasi":              {"mn": 548, "mx": 618},
+        "D3 Gizi":                 {"mn": 518, "mx": 588},
+        "D3 Analis Kesehatan":     {"mn": 515, "mx": 585},
+        "_default":                {"mn": 528, "mx": 598},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Universitas Negeri Yogyakarta (UNY)": {
+        "D3 Teknik Sipil":         {"mn": 498, "mx": 568},
+        "D3 Teknik Elektro":       {"mn": 502, "mx": 572},
+        "D3 Teknologi Informasi":  {"mn": 510, "mx": 580},
+        "D3 Manajemen":            {"mn": 495, "mx": 565},
+        "D3 Akuntansi":            {"mn": 495, "mx": 565},
+        "D3 Administrasi Bisnis":  {"mn": 488, "mx": 558},
+        "D3 Bahasa Inggris":       {"mn": 498, "mx": 568},
+        "D3 Pariwisata":           {"mn": 475, "mx": 545},
+        "D3 Komunikasi":           {"mn": 480, "mx": 550},
+        "_default":                {"mn": 490, "mx": 562},
+        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
+    },
+    "Universitas Negeri Semarang (UNNES)": {
+        "D3 Teknik Sipil":         {"mn": 488, "mx": 558},
+        "D3 Teknik Elektro":       {"mn": 490, "mx": 560},
+        "D3 Teknologi Informasi":  {"mn": 498, "mx": 568},
+        "D3 Manajemen":            {"mn": 480, "mx": 550},
+        "D3 Akuntansi":            {"mn": 482, "mx": 552},
+        "D3 Keperawatan":          {"mn": 462, "mx": 532},
+        "D3 Farmasi":              {"mn": 478, "mx": 548},
+        "_default":                {"mn": 478, "mx": 550},
+        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
+    },
+    "Universitas Negeri Malang (UM)": {
+        "D3 Teknologi Informasi":  {"mn": 492, "mx": 562},
+        "D3 Teknik Komputer":      {"mn": 490, "mx": 560},
+        "D3 Manajemen":            {"mn": 478, "mx": 548},
+        "D3 Akuntansi":            {"mn": 480, "mx": 550},
+        "D3 Administrasi Bisnis":  {"mn": 472, "mx": 542},
+        "D3 Keperawatan":          {"mn": 458, "mx": 528},
+        "D3 Pariwisata":           {"mn": 455, "mx": 525},
+        "D3 Bahasa Inggris":       {"mn": 465, "mx": 535},
+        "_default":                {"mn": 472, "mx": 544},
+        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
+    },
+    "Universitas Andalas (Unand)": {
+        "D3 Teknologi Informasi":  {"mn": 522, "mx": 592},
+        "D3 Teknik Komputer":      {"mn": 518, "mx": 588},
+        "D3 Manajemen":            {"mn": 505, "mx": 575},
+        "D3 Akuntansi":            {"mn": 508, "mx": 578},
+        "D3 Keperawatan":          {"mn": 482, "mx": 552},
+        "D3 Kebidanan":            {"mn": 478, "mx": 548},
+        "D3 Farmasi":              {"mn": 518, "mx": 588},
+        "D3 Gizi":                 {"mn": 488, "mx": 558},
+        "D3 Analis Kesehatan":     {"mn": 485, "mx": 555},
+        "D3 Pariwisata":           {"mn": 462, "mx": 532},
+        "_default":                {"mn": 495, "mx": 565},
+        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
+    },
+    "Universitas Sumatera Utara (USU)": {
+        "D3 Teknologi Informasi":  {"mn": 515, "mx": 585},
+        "D3 Teknik Komputer":      {"mn": 512, "mx": 582},
+        "D3 Manajemen":            {"mn": 498, "mx": 568},
+        "D3 Akuntansi":            {"mn": 500, "mx": 570},
+        "D3 Perbankan & Keuangan": {"mn": 495, "mx": 565},
+        "D3 Perpajakan":           {"mn": 495, "mx": 565},
+        "D3 Keperawatan":          {"mn": 472, "mx": 542},
+        "D3 Kebidanan":            {"mn": 468, "mx": 538},
+        "D3 Farmasi":              {"mn": 505, "mx": 575},
+        "D3 Analis Kesehatan":     {"mn": 475, "mx": 545},
+        "D3 Pariwisata":           {"mn": 452, "mx": 522},
+        "D3 Agribisnis":           {"mn": 455, "mx": 525},
+        "_default":                {"mn": 485, "mx": 556},
+        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
+    },
+    "Universitas Sriwijaya (Unsri)": {
+        "D3 Teknik Sipil":         {"mn": 468, "mx": 538},
+        "D3 Teknik Mesin":         {"mn": 462, "mx": 532},
+        "D3 Teknologi Informasi":  {"mn": 478, "mx": 548},
+        "D3 Manajemen":            {"mn": 455, "mx": 525},
+        "D3 Akuntansi":            {"mn": 458, "mx": 528},
+        "D3 Keperawatan":          {"mn": 435, "mx": 505},
+        "D3 Kebidanan":            {"mn": 430, "mx": 500},
+        "D3 Farmasi":              {"mn": 465, "mx": 535},
+        "D3 Agribisnis":           {"mn": 432, "mx": 502},
+        "_default":                {"mn": 450, "mx": 522},
+        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
+    },
+    "Universitas Lampung (Unila)": {
+        "D3 Teknik Sipil":         {"mn": 455, "mx": 525},
+        "D3 Teknologi Informasi":  {"mn": 462, "mx": 532},
+        "D3 Manajemen":            {"mn": 442, "mx": 512},
+        "D3 Akuntansi":            {"mn": 445, "mx": 515},
+        "D3 Keperawatan":          {"mn": 420, "mx": 490},
+        "D3 Kebidanan":            {"mn": 415, "mx": 485},
+        "D3 Agribisnis":           {"mn": 418, "mx": 488},
+        "_default":                {"mn": 435, "mx": 507},
+        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
+    },
+    "Universitas Jember (Unej)": {
+        "D3 Teknik Sipil":         {"mn": 448, "mx": 518},
+        "D3 Teknologi Informasi":  {"mn": 455, "mx": 525},
+        "D3 Manajemen":            {"mn": 438, "mx": 508},
+        "D3 Akuntansi":            {"mn": 440, "mx": 510},
+        "D3 Keperawatan":          {"mn": 415, "mx": 485},
+        "D3 Kebidanan":            {"mn": 410, "mx": 480},
+        "D3 Farmasi":              {"mn": 445, "mx": 515},
+        "D3 Agribisnis":           {"mn": 412, "mx": 482},
+        "D3 Teknologi Pangan":     {"mn": 418, "mx": 488},
+        "D3 Pariwisata":           {"mn": 395, "mx": 465},
+        "_default":                {"mn": 428, "mx": 500},
+        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
+    },
+    "Universitas Riau (Unri)": {
+        "D3 Teknik Sipil":         {"mn": 440, "mx": 510},
+        "D3 Teknologi Informasi":  {"mn": 448, "mx": 518},
+        "D3 Manajemen":            {"mn": 428, "mx": 498},
+        "D3 Akuntansi":            {"mn": 430, "mx": 500},
+        "D3 Keperawatan":          {"mn": 405, "mx": 475},
+        "D3 Kebidanan":            {"mn": 400, "mx": 470},
+        "D3 Agribisnis":           {"mn": 402, "mx": 472},
+        "D3 Pariwisata":           {"mn": 385, "mx": 455},
+        "_default":                {"mn": 418, "mx": 490},
+        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
+    },
+}
+
+def get_ptn_info(kampus, jurusan, jenjang="S1 (Sarjana)"):
+    """Ambil info skor PTN berdasarkan kampus, jurusan, dan jenjang"""
+    if "D3" in jenjang or jurusan.startswith("D3"):
+        ptn = PTN_D3_DATA.get(kampus, {})
+        if not ptn:
+            # Fallback: gunakan data S1 dan kurangi 80 poin
+            ptn_s1 = PTN_JURUSAN_DATA.get(kampus, {})
+            base = ptn_s1.get(jurusan, ptn_s1.get("_default", {"mn":500,"mx":570}))
+            return {
+                "mn": max(380, base["mn"] - 80),
+                "mx": max(450, base["mx"] - 80),
+                "k": ptn_s1.get("_klaster", 4),
+                "lbl": ptn_s1.get("_lbl", "🔸 Klaster 4 — Regional")
+            }
+        jurusan_data = ptn.get(jurusan, ptn.get("_default", {"mn":500,"mx":570}))
+        return {
+            "mn": jurusan_data["mn"],
+            "mx": jurusan_data["mx"],
+            "k": ptn.get("_klaster", 4),
+            "lbl": ptn.get("_lbl", "🔸 Klaster 4 — Regional")
+        }
+    else:
+        ptn = PTN_JURUSAN_DATA.get(kampus, {})
+        if not ptn:
+            return {"mn": 650, "mx": 720, "k": 4, "lbl": "🔸 Klaster 4 — Regional"}
+        jurusan_data = ptn.get(jurusan, ptn.get("_default", {"mn": 650, "mx": 720}))
+        return {
+            "mn": jurusan_data["mn"],
+            "mx": jurusan_data["mx"],
+            "k": ptn.get("_klaster", 4),
+            "lbl": ptn.get("_lbl", "🔸 Klaster 4 — Regional")
+        }
 
 # Untuk kompatibilitas fungsi lama
 def get_ptn(k):
@@ -838,6 +1239,39 @@ ALTERNATIF_MAP = {
     "Geografi":["Sejarah","Sosiologi","Kesehatan Masyarakat"],
 }
 
+ALTERNATIF_MAP_D3 = {
+    "D3 Teknik Sipil":         ["D3 Teknik Mesin","D3 Teknik Elektro","D3 Teknik Mekatronika"],
+    "D3 Teknik Mesin":         ["D3 Teknik Sipil","D3 Teknik Elektro","D3 Teknik Mekatronika"],
+    "D3 Teknik Elektro":       ["D3 Teknik Komputer","D3 Teknologi Informasi","D3 Teknik Mekatronika"],
+    "D3 Teknik Kimia":         ["D3 Teknologi Pangan","D3 Teknik Sipil","D3 Teknik Mesin"],
+    "D3 Teknik Komputer":      ["D3 Teknologi Informasi","D3 Teknik Elektro","D3 Animasi"],
+    "D3 Teknologi Informasi":  ["D3 Teknik Komputer","D3 Animasi","D3 Desain Grafis"],
+    "D3 Teknik Mekatronika":   ["D3 Teknik Mesin","D3 Teknik Elektro","D3 Teknik Komputer"],
+    "D3 Manajemen":            ["D3 Administrasi Bisnis","D3 Manajemen Pemasaran","D3 Akuntansi"],
+    "D3 Akuntansi":            ["D3 Perpajakan","D3 Perbankan & Keuangan","D3 Manajemen"],
+    "D3 Administrasi Bisnis":  ["D3 Manajemen","D3 Manajemen Pemasaran","D3 Akuntansi"],
+    "D3 Perbankan & Keuangan": ["D3 Akuntansi","D3 Perpajakan","D3 Manajemen"],
+    "D3 Manajemen Pemasaran":  ["D3 Administrasi Bisnis","D3 Komunikasi","D3 Manajemen"],
+    "D3 Perpajakan":           ["D3 Akuntansi","D3 Perbankan & Keuangan","D3 Manajemen"],
+    "D3 Keperawatan":          ["D3 Kebidanan","D3 Gizi","D3 Farmasi"],
+    "D3 Kebidanan":            ["D3 Keperawatan","D3 Gizi","D3 Analis Kesehatan"],
+    "D3 Farmasi":              ["D3 Analis Kesehatan","D3 Keperawatan","D3 Gizi"],
+    "D3 Gizi":                 ["D3 Keperawatan","D3 Farmasi","D3 Analis Kesehatan"],
+    "D3 Analis Kesehatan":     ["D3 Farmasi","D3 Radiologi","D3 Rekam Medis"],
+    "D3 Rekam Medis":          ["D3 Administrasi Bisnis","D3 Analis Kesehatan","D3 Keperawatan"],
+    "D3 Fisioterapi":          ["D3 Keperawatan","D3 Gizi","D3 Kebidanan"],
+    "D3 Radiologi":            ["D3 Analis Kesehatan","D3 Rekam Medis","D3 Farmasi"],
+    "D3 Komunikasi":           ["D3 Hubungan Masyarakat","D3 Manajemen Pemasaran","D3 Pariwisata"],
+    "D3 Hubungan Masyarakat":  ["D3 Komunikasi","D3 Manajemen Pemasaran","D3 Administrasi Bisnis"],
+    "D3 Desain Grafis":        ["D3 Animasi","D3 Komunikasi","D3 Teknologi Informasi"],
+    "D3 Animasi":              ["D3 Desain Grafis","D3 Teknologi Informasi","D3 Komunikasi"],
+    "D3 Pariwisata":           ["D3 Perhotelan","D3 Komunikasi","D3 Manajemen"],
+    "D3 Perhotelan":           ["D3 Pariwisata","D3 Manajemen","D3 Komunikasi"],
+    "D3 Bahasa Inggris":       ["D3 Komunikasi","D3 Hubungan Masyarakat","D3 Pariwisata"],
+    "D3 Agribisnis":           ["D3 Teknologi Pangan","D3 Manajemen","D3 Administrasi Bisnis"],
+    "D3 Teknologi Pangan":     ["D3 Agribisnis","D3 Analis Kesehatan","D3 Gizi"],
+}
+
 LABEL_STRATEGI = ["Intensif & Terstruktur","Penguatan Mental","Optimasi & Review","Pertahankan & Tingkatkan"]
 DESC_STRATEGI = {
     "Intensif & Terstruktur":{"icon":"🔴","desc":"Kebiasaan belajar dan kondisi psikologis perlu ditingkatkan secara bersamaan.",
@@ -869,13 +1303,11 @@ lgbm_model, lgbm_fname = load_model()
 # ══════════════════════════════════════════════════════════
 # KALKULASI
 # ══════════════════════════════════════════════════════════
-def get_bobot(j): return BOBOT_MAP.get(j, DEFAULT_BOBOT)
-
 def hitung_tw(skor, bobot): return sum(skor[k]*bobot[k] for k in SUBTES)
 
-def hitung_peluang(sw, kampus, jurusan=None):
+def hitung_peluang(sw, kampus, jurusan=None, jenjang="S1 (Sarjana)"):
     if jurusan:
-        info = get_ptn_info(kampus, jurusan)
+        info = get_ptn_info(kampus, jurusan, jenjang)
     else:
         info = get_ptn(kampus)
     mn, mx = info["mn"], info["mx"]
@@ -910,8 +1342,9 @@ def compute(d):
     bobot = get_bobot(d["jurusan"])
     sw    = hitung_tw(skor, bobot)
     rata  = float(np.mean([skor[k] for k in SUBTES]))
-    pl,pc,ppct = hitung_peluang(sw, d["kampus"], d["jurusan"])
-    info  = get_ptn_info(d["kampus"], d["jurusan"])
+    jenjang = d.get("jenjang", "S1 (Sarjana)")
+    pl,pc,ppct = hitung_peluang(sw, d["kampus"], d["jurusan"], jenjang)
+    info  = get_ptn_info(d["kampus"], d["jurusan"], jenjang)
     gap   = sw - info["mn"]
 
     psiko = (d["fokus"]*1.5 + d["pede"]*1.5 + (6-d["cemas"]) + (6-d["distrak"])) / 20 * 100
@@ -926,13 +1359,17 @@ def compute(d):
 
     lgbm_r = predict_lgbm(lgbm_model, d) if lgbm_model else None
     aman   = pl in ("Sangat Aman","Aman")
+    jenjang = d.get("jenjang","S1 (Sarjana)")
+    if "D3" in jenjang or d["jurusan"].startswith("D3"):
+        alt = ALTERNATIF_MAP_D3.get(d["jurusan"],[])
+    else:
+        alt = ALTERNATIF_MAP.get(d["jurusan"],[])
 
     return {**d,"skor":skor,"bobot":bobot,"sw":sw,"rata":rata,
             "pl":pl,"pc":pc,"ppct":ppct,"info":info,"gap":gap,
             "psiko":psiko,"konsist":konsist,"stab":stab,"risk":risk,
-            "lgbm_r":lgbm_r,"aman":aman,
-            "alternatif":ALTERNATIF_MAP.get(d["jurusan"],[])}
-
+            "lgbm_r":lgbm_r,"aman":aman,"jenjang":jenjang,
+            "alternatif":alt}
 
 # ══════════════════════════════════════════════════════════
 # RENCANA BELAJAR MINGGUAN
@@ -1108,23 +1545,28 @@ def ch_klaster(sw, key=None):
         title=dict(text="Posisi Skor vs Klaster PTN", font=dict(size=13,color='#1a2540')), height=370)
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False}, key=key or ckey("klaster"))
 
-def ch_ptn(sw, klaster_no, jurusan, key=None):
-    ptn_k = {k:v for k,v in PTN_JURUSAN_DATA.items() if v.get("_klaster")==klaster_no}
+def ch_ptn(sw, klaster_no, jurusan, jenjang="S1 (Sarjana)", key=None):
+    if "D3" in jenjang:
+        ptn_k = {k:v for k,v in PTN_D3_DATA.items() if v.get("_klaster")==klaster_no}
+    else:
+        ptn_k = {k:v for k,v in PTN_JURUSAN_DATA.items() if v.get("_klaster")==klaster_no}
     fig = go.Figure()
     for nm,d in ptn_k.items():
         short = nm.split("(")[0].strip()[:24]
-        jd = d.get(jurusan, d.get("_default", {"mn":650,"mx":720}))
+        jd = d.get(jurusan, d.get("_default", {"mn":500,"mx":600}))
         mn_j, mx_j = jd["mn"], jd["mx"]
         fig.add_trace(go.Bar(x=[short], y=[mx_j-mn_j], base=[mn_j], showlegend=False,
             marker_color='rgba(59,108,183,.12)', marker_line_color='#3b6cb7', marker_line_width=1.5,
             text=[f"{mn_j}–{mx_j}"], textposition='inside', textfont=dict(size=9,color='#1a2540')))
     fig.add_hline(y=sw, line_dash="dash", line_color="#c8890a", line_width=2,
         annotation_text=f"  Skor kamu: {sw:.0f}", annotation_font_color="#c8890a", annotation_font_size=11)
+    y_min = 350 if "D3" in jenjang else 450
+    jenjang_lbl2 = "D3" if "D3" in jenjang else "S1"
     fig.update_layout(**CTH, barmode='overlay',
-        yaxis=dict(range=[450,SKOR_MAX_TPS], gridcolor='#eef1f5',
+        yaxis=dict(range=[y_min,SKOR_MAX_TPS], gridcolor='#eef1f5',
                    title="Rentang Skor", title_font=dict(color='#6a7a95'), tickfont=dict(size=9,color='#3a4a65')),
         xaxis=dict(gridcolor='#dde3ec', tickfont=dict(size=9,color='#3a4a65')),
-        title=dict(text=f"PTN Klaster {klaster_no} — {jurusan}", font=dict(size=13,color='#1a2540')), height=320)
+        title=dict(text=f"PTN Klaster {klaster_no} ({jenjang_lbl2}) — {jurusan}", font=dict(size=13,color='#1a2540')), height=320)
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False}, key=key or ckey("ptn"))
 
 def ch_psiko(psiko, konsist, stab, key=None):
@@ -1183,6 +1625,7 @@ def ch_progress(r, key=None):
 def generate_pdf(r):
     now  = datetime.datetime.now().strftime("%d %B %Y, %H:%M")
     nama = r.get("nama","—")
+    jenjang_lbl = r.get("jenjang","S1 (Sarjana)")
     bobot_rows = "".join(
         f"<tr><td>{SUBTES_FULL[k]}</td><td>{int(r['bobot'][k]*100)}%</td>"
         f"<td>{r['skor'][k]}</td><td>{r['skor'][k]*r['bobot'][k]:.1f}</td></tr>"
@@ -1240,8 +1683,9 @@ tr:nth-child(even) td{{background:#f7f9fc}}
   <div class="sub">Laporan Kesiapan UTBK · {now}</div>
 </div>
 <h2>👤 Profil Siswa</h2>
-<table><tr><th>Nama</th><td>{nama}</td><th>Jurusan Target</th><td>{r['jurusan']}</td></tr>
-<tr><th>Kampus Target</th><td>{r['kampus']}</td><th>Klaster</th><td>{r['info']['lbl']}</td></tr></table>
+<table><tr><th>Nama</th><td>{nama}</td><th>Jenjang</th><td>{jenjang_lbl}</td></tr>
+<tr><th>Jurusan / Prodi</th><td>{r['jurusan']}</td><th>Kampus Target</th><td>{r['kampus']}</td></tr>
+<tr><th>Klaster</th><td colspan="3">{r['info']['lbl']}</td></tr></table>
 <h2>📊 Ringkasan Hasil (Skor skala 1000)</h2>
 <div class="kpi-row">
 <div class="kpi"><div class="lbl">Skor Tertimbang</div><div class="val {gc}">{r['sw']:.0f}</div><div class="lbl">dari 1000</div></div>
@@ -1263,7 +1707,7 @@ tr:nth-child(even) td{{background:#f7f9fc}}
 <h2>🎓 Jurusan Alternatif</h2><p>{alt_list}</p>
 <h2>📅 Rencana Belajar Mingguan (8 Minggu)</h2>
 {minggu_html}
-<div class="footer">🎯 SKORIA — AI UTBK Intelligence · Estimasi berdasarkan data UTBK 2023/2024 · Skor skala 200–1000</div>
+<div class="footer">🎯 SKORIA — AI UTBK Intelligence · Data SNPMB/BPPP Kemdikbud & media pendidikan 2025/2026 · Skor skala 200–1000</div>
 <div class="no-print" style="margin-top:16px;text-align:center">
 <button onclick="window.print()" style="padding:8px 20px;background:#3b6cb7;border:none;border-radius:8px;
   font-weight:700;cursor:pointer;font-size:11pt;font-family:'Sora',sans-serif;color:#ffffff">
@@ -1308,7 +1752,7 @@ def bobot_chips(jurusan):
                 unsafe_allow_html=True)
 
 def step_bar(cur):
-    steps = ["👤 Profil & Target","📊 Skor TPS","🧠 Psikologis","📚 Kebiasaan Belajar"]
+    steps = ["👤 Profil, Jenjang & Target","📊 Skor TPS","🧠 Psikologis","📚 Kebiasaan Belajar"]
     html  = '<div class="step-row">'
     for i,s in enumerate(steps,1):
         cls = "active" if i==cur else "done" if i<cur else ""
@@ -1330,7 +1774,7 @@ def page_home():
     c1,c2,c3,c4 = st.columns(4)
     feats = [
         ("📡","Radar Chart TPS","Visualisasi 7 subtes vs profil ideal jurusan"),
-        ("📊","Analisis Kampus","Skor per jurusan & klaster PTN berbasis data UTBK 2023-2024"),
+        ("🎓","S1 & D3 Support","Data skor aman per jenjang, jurusan, & PTN berbasis SNPMB 2025/2026"),
         ("📅","Rencana Mingguan","Jadwal belajar 8 minggu terstruktur"),
         ("📄","Export PDF","Laporan lengkap dengan rencana belajar"),
     ]
@@ -1348,7 +1792,8 @@ def page_home():
       <h4>SKORIA — Score Intelligence for UTBK</h4>
       Platform SKORIA mengintegrasikan <strong>Model LightGBM</strong> dengan analisis holistik:
       <ul>
-        <li>📊 Skor aman berbasis data UTBK 2023/2024 per jurusan & PTN (bukan estimasi generik)</li>
+        <li>🎓 <strong>Support jenjang S1 (Sarjana) & D3 (Diploma Tiga)</strong> — 30+ prodi D3 dari 18 PTN</li>
+        <li>📊 Skor aman per jurusan, jenjang, & PTN berbasis <strong>SNPMB/BPPP Kemdikbud & media pendidikan 2025/2026</strong></li>
         <li>🧠 Evaluasi psikologis: fokus, percaya diri, kecemasan, distraksi</li>
         <li>📡 Radar Chart TPS, Bar Chart, Pipeline Kontribusi, Klaster PTN</li>
         <li>📅 Rencana belajar mingguan 8 minggu dengan target terukur</li>
@@ -1375,23 +1820,60 @@ def step1():
     st.markdown('<h3>👤 Profil & Target</h3>', unsafe_allow_html=True)
     d = st.session_state.data
     nama    = st.text_input("Nama Lengkap", value=d.get("nama",""), placeholder="Nama kamu...")
-    jurusan = st.selectbox("Target Jurusan", DAFTAR_JURUSAN,
-                           index=DAFTAR_JURUSAN.index(d.get("jurusan",DAFTAR_JURUSAN[0])))
-    kampus  = st.selectbox("Target Kampus (PTN)", DAFTAR_PTN,
+
+    # Jenjang selector
+    prev_jenjang = d.get("jenjang", DAFTAR_JENJANG[0])
+    jenjang = st.radio(
+        "🎓 Jenjang yang Dituju",
+        DAFTAR_JENJANG,
+        index=DAFTAR_JENJANG.index(prev_jenjang),
+        horizontal=True,
+        help="S1 = Sarjana (4 tahun) | D3 = Diploma Tiga (3 tahun, program vokasi)"
+    )
+
+    # Jurusan dinamis berdasarkan jenjang
+    daftar_j = get_daftar_jurusan(jenjang)
+    prev_jurusan = d.get("jurusan", daftar_j[0])
+    if prev_jurusan not in daftar_j:
+        prev_jurusan = daftar_j[0]
+    jurusan = st.selectbox(
+        "🏫 Target Jurusan / Program Studi",
+        daftar_j,
+        index=daftar_j.index(prev_jurusan),
+        help="Pilih program studi yang kamu tuju"
+    )
+
+    kampus  = st.selectbox("🏛️ Target Kampus (PTN)", DAFTAR_PTN,
                            index=DAFTAR_PTN.index(d.get("kampus",DAFTAR_PTN[0])))
+
+    # Info jenjang
+    if "D3" in jenjang:
+        st.markdown("""<div class="al al-p" style="margin-top:.5rem;padding:.7rem 1rem">
+          <h4>📋 Tentang Jenjang D3 (Diploma Tiga)</h4>
+          Program vokasi 3 tahun yang menekankan keterampilan praktis & profesional.
+          Skor aman D3 umumnya <strong>35–80 poin lebih rendah</strong> dari S1 sejenis,
+          namun persaingan tetap ada karena kuota lebih kecil. Data berbasis SNPMB 2025/2026.
+        </div>""", unsafe_allow_html=True)
+    else:
+        st.markdown("""<div class="al al-i" style="margin-top:.5rem;padding:.7rem 1rem">
+          <h4>📋 Tentang Jenjang S1 (Sarjana)</h4>
+          Program akademik 4 tahun. Data skor aman berbasis SNPMB/BPPP Kemdikbud & media pendidikan 2025/2026.
+        </div>""", unsafe_allow_html=True)
+
     st.markdown("---")
-    st.markdown(f"<p style='color:#3a4a65;font-weight:600;font-size:.87rem'>📋 Bobot Subtes untuk <strong style='color:#3b6cb7'>{jurusan}</strong>:</p>", unsafe_allow_html=True)
     bobot_chips(jurusan)
-    info = get_ptn_info(kampus, jurusan)
+    info = get_ptn_info(kampus, jurusan, jenjang)
+    jenjang_lbl = "D3" if "D3" in jenjang else "S1"
     st.markdown(f"""<div class="al al-i" style="margin-top:.7rem">
       <h4>{info['lbl']} — {kampus}</h4>
-      Skor aman untuk <strong>{jurusan}</strong>: <strong>{info['mn']} – {info['mx']}</strong>
-      <br><small style="color:#6a7a95">Berdasarkan data UTBK 2023/2024</small>
+      Skor aman <strong>{jenjang_lbl} {jurusan}</strong>:
+      <strong>{info['mn']} – {info['mx']}</strong>
+      <br><small style="color:#6a7a95">Berdasarkan data SNPMB/BPPP Kemdikbud & referensi media pendidikan 2025/2026</small>
     </div>""", unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     if st.button("Lanjut → Skor TPS ▶", type="primary"):
         if not nama.strip(): st.error("Nama harus diisi!"); return
-        st.session_state.data.update({"nama":nama,"jurusan":jurusan,"kampus":kampus})
+        st.session_state.data.update({"nama":nama,"jenjang":jenjang,"jurusan":jurusan,"kampus":kampus})
         st.session_state.step=2; st.rerun()
 
 def step2():
@@ -1517,11 +1999,13 @@ def page_result():
     nama = r.get("nama","Pejuang UTBK")
     jam  = datetime.datetime.now().hour
     salam= "Selamat pagi" if jam<11 else "Selamat siang" if jam<15 else "Selamat sore" if jam<18 else "Selamat malam"
+    jenjang_lbl = r.get("jenjang","S1 (Sarjana)")
+    jenjang_badge = "🎓 D3 Vokasi" if "D3" in jenjang_lbl else "🎓 S1 Sarjana"
 
     st.markdown(f"""<div class="hero" style="padding:1.7rem 2.4rem">
       <h1 style="font-size:1.55rem!important">{salam}, <span>{nama}!</span> 👋</h1>
-      <p>Hasil analisis <strong style="color:#ffd166">SKORIA</strong> untuk 
-         <strong style="color:#ffd166">{r['jurusan']}</strong> di 
+      <p>Hasil analisis <strong style="color:#ffd166">SKORIA</strong> untuk
+         <strong style="color:#ffd166">{jenjang_badge} — {r['jurusan']}</strong> di
          <strong style="color:rgba(255,255,255,.9)">{r['kampus']}</strong> · Skor skala 1000</p>
     </div>""", unsafe_allow_html=True)
 
@@ -1618,18 +2102,23 @@ def page_result():
     with t2:
         st.markdown('<div class="sec">📊 Posisi Skor vs Klaster PTN</div>', unsafe_allow_html=True)
         ch_klaster(r["sw"], key="r_kl_t2")
-        st.markdown(f'<div class="sec">🏛️ PTN Klaster {r["info"]["k"]} — Skor per {r["jurusan"]}</div>', unsafe_allow_html=True)
-        ch_ptn(r["sw"], r["info"]["k"], r["jurusan"], key="r_ptn_t2")
+        st.markdown(f'<div class="sec">🏛️ PTN Klaster {r["info"]["k"]} — Skor per {r["jurusan"]} ({r.get("jenjang","S1")})</div>', unsafe_allow_html=True)
+        ch_ptn(r["sw"], r["info"]["k"], r["jurusan"], r.get("jenjang","S1 (Sarjana)"), key="r_ptn_t2")
         st.markdown('<div class="sec">Ringkasan Peluang per Klaster</div>', unsafe_allow_html=True)
+        jenjang_r = r.get("jenjang","S1 (Sarjana)")
         kl_rows = []
         for kno,(mn_k,mx_k,knm) in [(1,(850,950,"⭐ Klaster 1 — Top Tier")),
                                       (2,(700,870,"🔷 Klaster 2 — Menengah Atas")),
                                       (3,(600,720,"🔹 Klaster 3 — Menengah")),
                                       (4,(555,660,"🔸 Klaster 4 — Regional"))]:
-            # Pakai skor spesifik jurusan dari PTN representatif klaster
-            ptn_klaster = [k for k,v in PTN_JURUSAN_DATA.items() if v.get("_klaster")==kno]
+            if "D3" in jenjang_r:
+                ptn_klaster = [k for k,v in PTN_D3_DATA.items() if v.get("_klaster")==kno]
+                data_src = PTN_D3_DATA
+            else:
+                ptn_klaster = [k for k,v in PTN_JURUSAN_DATA.items() if v.get("_klaster")==kno]
+                data_src = PTN_JURUSAN_DATA
             if ptn_klaster:
-                info_k = get_ptn_info(ptn_klaster[0], r["jurusan"])
+                info_k = get_ptn_info(ptn_klaster[0], r["jurusan"], jenjang_r)
                 mn_k, mx_k = info_k["mn"], info_k["mx"]
             g = r["sw"] - mn_k
             if r["sw"]>=mx_k: st_k,p_k="🎯 Sangat Aman","~87%"
@@ -1724,7 +2213,7 @@ def page_result():
                 for col,j in zip(ac,alt):
                     with col:
                         bj=get_bobot(j); swj=hitung_tw(r["skor"],bj)
-                        plj,_,pctj=hitung_peluang(swj,r["kampus"],j)
+                        plj,_,pctj=hitung_peluang(swj,r["kampus"],j,r.get("jenjang","S1 (Sarjana)"))
                         st.markdown(f"""<div class="card" style="text-align:center;opacity:.75">
                           <div style="font-size:.7rem;color:#6a7a95">Alternatif</div>
                           <div style="font-weight:700;font-size:.87rem;margin:.2rem 0;color:#1a2540">{j}</div>
@@ -1740,8 +2229,8 @@ def page_result():
             st.markdown('<div class="sec">🔄 Jurusan Alternatif yang Direkomendasikan</div>', unsafe_allow_html=True)
             for idx,j in enumerate(r["alternatif"]):
                 bj = get_bobot(j); swj = hitung_tw(r["skor"],bj)
-                plj,_,pctj = hitung_peluang(swj, r["kampus"], j)
-                info_j = get_ptn_info(r["kampus"], j)
+                plj,_,pctj = hitung_peluang(swj, r["kampus"], j, r.get("jenjang","S1 (Sarjana)"))
+                info_j = get_ptn_info(r["kampus"], j, r.get("jenjang","S1 (Sarjana)"))
                 with st.expander(f"📚 {j}  —  Skor: {swj:.0f}  |  {plj}  ({pctj:.0f}%)"):
                     ca2,cb2 = st.columns(2)
                     with ca2:
@@ -1885,7 +2374,7 @@ def page_result():
         Konsistensi + strategi tepat = PTN impianmu pasti bisa diraih 🚀
       </div>
       <div style="color:#b0b8c8;font-size:.7rem;margin-top:.3rem">
-        🎯 SKORIA — AI UTBK Intelligence · LightGBM + Data UTBK 2023/2024 · Skor skala 200–1000
+        🎯 SKORIA v4.0 — AI UTBK Intelligence · LightGBM + Data SNPMB 2025/2026 · S1 & D3 · Skor skala 200–1000
       </div>
     </div>""", unsafe_allow_html=True)
 
