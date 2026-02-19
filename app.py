@@ -25,290 +25,537 @@ st.set_page_config(
 )
 
 # ══════════════════════════════════════════════════════════
-# GLOBAL CSS — Light clean theme, comfortable on eyes
+# GLOBAL CSS — Animated Design System v4.1
 # ══════════════════════════════════════════════════════════
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@600;700;800&display=swap');
 
 :root {
-  --bg:       #f0f4f8;
-  --surf:     #ffffff;
-  --surf2:    #f7f9fc;
-  --border:   #dde3ec;
-  --accent:   #3b6cb7;
-  --accent2:  #4a7fd4;
-  --gold:     #c8890a;
-  --gold2:    #e0a020;
-  --green:    #1a8a4a;
-  --green2:   #22a55e;
-  --red:      #c0392b;
-  --orange:   #d4620a;
-  --purple:   #7048c8;
-  --teal:     #0d8a80;
-  --text:     #1a2540;
-  --text2:    #3a4a65;
-  --text3:    #6a7a95;
-  --r:        10px;
-  --shadow:   0 2px 8px rgba(30,50,100,.09);
+  --bg:      #f0f4fa;
+  --surf:    #ffffff;
+  --surf2:   #f7f9fd;
+  --border:  #e0e8f4;
+  --accent:  #3464c8;
+  --a2:      #5080e0;
+  --gold:    #d4900a;
+  --green:   #148a42;
+  --red:     #c0392b;
+  --orange:  #d4620a;
+  --purple:  #6b3fca;
+  --teal:    #0d8a80;
+  --text:    #12203f;
+  --text2:   #334466;
+  --text3:   #6a7a9a;
+  --r:       12px;
+  --sh:      0 2px 12px rgba(30,60,140,.08);
+  --sh2:     0 8px 32px rgba(30,60,140,.15);
 }
 
+/* ─── KEYFRAMES ─── */
+@keyframes fadeSlideUp {
+  from { opacity:0; transform:translateY(30px) scale(.97); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+@keyframes fadeSlideLeft {
+  from { opacity:0; transform:translateX(-24px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+@keyframes fadeSlideRight {
+  from { opacity:0; transform:translateX(24px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+@keyframes popIn {
+  0%   { opacity:0; transform:scale(.5) rotate(-8deg); }
+  65%  { opacity:1; transform:scale(1.1) rotate(3deg); }
+  85%  { transform:scale(.96) rotate(-1deg); }
+  100% { transform:scale(1) rotate(0); }
+}
+@keyframes pulseRing {
+  0%,100% { box-shadow: 0 0 0 0 rgba(52,100,200,.35); }
+  50%      { box-shadow: 0 0 0 10px rgba(52,100,200,0); }
+}
+@keyframes orb {
+  0%,100% { transform:scale(1) translate(0,0); opacity:.08; }
+  40%      { transform:scale(1.18) translate(15px,-12px); opacity:.14; }
+  70%      { transform:scale(.88) translate(-10px,14px); opacity:.04; }
+}
+@keyframes float {
+  0%,100% { transform:translateY(0px); }
+  50%      { transform:translateY(-8px); }
+}
+@keyframes shimmer {
+  from { background-position:-600px 0; }
+  to   { background-position:600px 0; }
+}
+@keyframes progressGrow {
+  from { width:0 !important; opacity:.4; }
+}
+@keyframes gradientFlow {
+  0%,100% { background-position:0% 50%; }
+  50%      { background-position:100% 50%; }
+}
+@keyframes ticker {
+  from { transform:translateX(0); }
+  to   { transform:translateX(-50%); }
+}
+@keyframes spinSlow {
+  to { transform:rotate(360deg); }
+}
+@keyframes typeBar {
+  from { width:0; }
+}
+@keyframes countUp {
+  from { opacity:0; transform:translateY(14px) scale(.8); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+@keyframes rippleOut {
+  from { transform:scale(0); opacity:.6; }
+  to   { transform:scale(3); opacity:0; }
+}
+@keyframes borderTrail {
+  0%   { clip-path:inset(0 100% 0 0); }
+  100% { clip-path:inset(0 0% 0 0); }
+}
+@keyframes starSpin {
+  0%   { opacity:0; transform:rotate(-30deg) scale(0); }
+  60%  { opacity:1; transform:rotate(10deg) scale(1.2); }
+  100% { opacity:1; transform:rotate(0) scale(1); }
+}
+
+/* ─── GLOBAL ─── */
 html,body,[class*="css"],.stApp {
   background: var(--bg) !important;
-  font-family: 'Inter', sans-serif !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
   color: var(--text) !important;
 }
+#MainMenu, footer, header { visibility:hidden }
+.stDeployButton { display:none }
+.block-container { padding:1rem 1.5rem !important; max-width:100% !important; }
 
-#MainMenu, footer, header { visibility: hidden }
-.stDeployButton { display: none }
-.block-container { padding: 1rem 1.5rem !important; max-width: 100% !important; }
+/* Page entry */
+.main .block-container { animation: fadeSlideUp .5s cubic-bezier(.22,.68,0,1.2) both; }
 
-/* ── TOPBAR ── */
+/* ─── TOPBAR ─── */
 .topbar {
-  background: #ffffff;
-  border-bottom: 2px solid var(--border);
-  padding: .65rem 2rem;
-  display: flex; align-items: center; gap: 1.2rem;
-  margin: -1rem -1.5rem 1.5rem -1.5rem;
-  position: sticky; top: 0; z-index: 999;
-  box-shadow: 0 2px 8px rgba(30,50,100,.08);
+  background:#fff;
+  border-bottom:2px solid var(--border);
+  padding:.6rem 2rem;
+  display:flex; align-items:center; gap:1.2rem;
+  margin:-1rem -1.5rem 1.5rem -1.5rem;
+  position:sticky; top:0; z-index:999;
+  box-shadow:0 2px 12px rgba(30,60,140,.07);
+  animation:fadeSlideLeft .4s ease both;
 }
 .topbar-brand {
-  font-family: 'Sora', sans-serif;
-  font-size: 1.1rem; font-weight: 800;
-  color: var(--accent) !important;
-  display: flex; align-items: center; gap: .5rem;
+  font-family:'Space Grotesk',sans-serif;
+  font-size:1.1rem; font-weight:800;
+  color:var(--accent) !important;
+  display:flex; align-items:center; gap:.5rem;
+  animation:float 4s ease-in-out infinite;
 }
-.topbar-tag {
-  font-size: .68rem; font-weight: 500;
-  color: var(--text3); letter-spacing: .04em;
-}
+.topbar-tag { font-size:.68rem; color:var(--text3); letter-spacing:.04em; }
 .step-pill {
-  font-size: .75rem; font-weight: 600;
-  padding: .28rem .85rem; border-radius: 99px;
-  color: var(--text3); background: var(--surf2);
-  border: 1px solid var(--border);
+  font-size:.72rem; font-weight:600;
+  padding:.26rem .8rem; border-radius:99px;
+  color:var(--text3); background:var(--surf2);
+  border:1px solid var(--border);
+  transition:all .3s ease;
 }
-.step-pill.done  { background: #e8f5ee; color: var(--green); border-color: #b8e0c8; }
-.step-pill.active{ background: #eef3fc; color: var(--accent); border-color: #b8cff0; }
+.step-pill.done  { background:#e6f5ee; color:var(--green); border-color:#9adbb8; animation:popIn .5s ease both; }
+.step-pill.active{ background:#eef2fc; color:var(--accent); border-color:#aac0f0; animation:pulseRing 2.5s ease-in-out infinite; }
 
-/* ── HERO ── */
+/* ─── HERO ─── */
 .hero {
-  background: linear-gradient(135deg, #2a4a8c 0%, #3b6cb7 60%, #2d5fa0 100%);
-  border-radius: 14px; padding: 2.2rem 2.8rem;
-  margin-bottom: 1.6rem; position: relative; overflow: hidden;
-  box-shadow: 0 4px 20px rgba(40,80,180,.18);
+  background:linear-gradient(135deg,#1a3470 0%,#3464c8 55%,#2a50a8 100%);
+  border-radius:16px; padding:2.4rem 3rem;
+  margin-bottom:1.8rem; position:relative; overflow:hidden;
+  box-shadow:0 6px 32px rgba(30,60,180,.22);
+  animation:fadeSlideUp .65s cubic-bezier(.22,.68,0,1.2) both;
 }
 .hero::before {
-  content: ''; position: absolute; top: -60px; right: -60px;
-  width: 300px; height: 300px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(255,255,255,.07) 0%, transparent 65%);
+  content:''; position:absolute; top:-70px; right:-70px;
+  width:320px; height:320px; border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.12) 0%,transparent 65%);
+  animation:orb 7s ease-in-out infinite;
+}
+.hero::after {
+  content:''; position:absolute; bottom:-90px; left:8%;
+  width:240px; height:240px; border-radius:50%;
+  background:radial-gradient(circle,rgba(255,209,102,.09) 0%,transparent 65%);
+  animation:orb 9s ease-in-out infinite reverse;
 }
 .hero h1 {
-  font-family: 'Sora', sans-serif !important;
-  font-size: 1.9rem !important; font-weight: 800 !important;
-  color: #ffffff !important; margin: 0 0 .5rem !important; line-height: 1.25 !important;
+  font-family:'Space Grotesk',sans-serif !important;
+  font-size:2rem !important; font-weight:800 !important;
+  color:#fff !important; margin:0 0 .6rem !important;
+  animation:fadeSlideLeft .7s cubic-bezier(.22,.68,0,1.2) .1s both;
 }
-.hero h1 span { color: #ffd166; }
-.hero p { color: rgba(255,255,255,.82) !important; font-size: .93rem; margin: 0; line-height: 1.65; }
-
-/* ── CARDS ── */
-.card {
-  background: var(--surf);
-  border: 1px solid var(--border);
-  border-radius: var(--r); padding: 1.2rem 1.4rem;
-  box-shadow: var(--shadow);
+.hero h1 span { color:#ffd166; }
+.hero p {
+  color:rgba(255,255,255,.82) !important; font-size:.95rem; margin:0; line-height:1.7;
+  animation:fadeSlideUp .7s ease .2s both;
 }
-.card-dark {
-  background: var(--surf2);
-  border: 1px solid var(--border);
-  border-radius: var(--r); padding: 1.1rem 1.3rem;
-}
-.kpi-lbl {
-  font-size: .68rem; font-weight: 600; text-transform: uppercase;
-  letter-spacing: .09em; color: var(--text3); margin-bottom: .3rem;
-}
-.kpi-val {
-  font-family: 'Sora', sans-serif;
-  font-size: 1.85rem; font-weight: 700; line-height: 1; color: var(--text);
-}
-.kpi-sub { font-size: .72rem; color: var(--text3); margin-top: .2rem; }
-
-/* Colors */
-.c-gold   { color: var(--gold)!important; }
-.c-green  { color: var(--green)!important; }
-.c-red    { color: var(--red)!important; }
-.c-orange { color: var(--orange)!important; }
-.c-blue   { color: var(--accent2)!important; }
-.c-purple { color: var(--purple)!important; }
-.c-teal   { color: var(--teal)!important; }
-
-/* ── SECTION TITLE ── */
-.sec {
-  font-family: 'Sora', sans-serif; font-size: .92rem; font-weight: 700;
-  color: var(--text); margin: 1.5rem 0 .7rem;
-  padding-bottom: .3rem; border-bottom: 2px solid var(--border);
+.hero-badge {
+  display:inline-flex; align-items:center; gap:.4rem;
+  background:rgba(255,255,255,.12); backdrop-filter:blur(4px);
+  border:1px solid rgba(255,255,255,.2);
+  padding:.3rem .85rem; border-radius:99px;
+  font-size:.72rem; font-weight:600; color:rgba(255,255,255,.9);
+  margin-bottom:1rem; animation:fadeSlideLeft .5s ease .05s both;
 }
 
-/* ── ALERTS ── */
-.al {
-  border-radius: var(--r); padding: .9rem 1.2rem; margin-bottom: .8rem;
-  border-left: 4px solid; font-size: .86rem; line-height: 1.7; color: var(--text2);
-  box-shadow: var(--shadow);
+/* ─── ANIMATED DIVIDER ─── */
+.anim-div {
+  height:2px; border-radius:99px; margin:1.2rem 0;
+  background:linear-gradient(90deg,var(--accent),var(--purple),var(--teal),var(--gold),var(--accent));
+  background-size:300% auto;
+  animation:gradientFlow 4s linear infinite;
 }
-.al h4 { margin: 0 0 .35rem; font-size: .88rem; font-weight: 700; color: var(--text); }
-.al ul, .al ol { margin: .3rem 0 0; padding-left: 1.2rem; color: var(--text2); }
-.al ul li, .al ol li { margin-bottom: .2rem; }
-.al strong { color: var(--text); }
-.al code { color: var(--accent); background: rgba(59,108,183,.1); padding: 1px 5px; border-radius: 4px; }
-.al-s { background: #f0faf5; border-color: var(--green); }
-.al-s h4 { color: var(--green); }
-.al-w { background: #fff8f0; border-color: var(--orange); }
-.al-w h4 { color: var(--orange); }
-.al-d { background: #fff0f0; border-color: var(--red); }
-.al-d h4 { color: var(--red); }
-.al-i { background: #f0f5fc; border-color: var(--accent); }
-.al-i h4 { color: var(--accent); }
-.al-p { background: #f5f0fc; border-color: var(--purple); }
-.al-p h4 { color: var(--purple); }
 
-/* ── PROGRESS BARS ── */
-.prog-wrap { margin-bottom: .7rem; }
-.prog-lbl {
-  display: flex; justify-content: space-between;
-  font-size: .8rem; font-weight: 600; color: var(--text2); margin-bottom: 4px;
+/* ─── TICKER ─── */
+.ticker-wrap {
+  overflow:hidden; white-space:nowrap;
+  background:linear-gradient(90deg,#eef2fc,#f2eeff,#eef6fc);
+  background-size:200% auto; animation:gradientFlow 6s linear infinite;
+  border:1px solid var(--border); border-radius:10px;
+  padding:.5rem 0; margin-bottom:1.3rem;
 }
-.prog-bg { background: var(--surf2); border-radius: 99px; height: 8px; overflow: hidden;
-           border: 1px solid var(--border); }
-.prog-fill { height: 100%; border-radius: 99px; }
+.ticker-inner { display:inline-block; animation:ticker 28s linear infinite; }
+.ticker-item { display:inline-block; padding:0 2.8rem; font-size:.8rem; font-weight:600; color:var(--text2); }
+.ticker-item span { color:var(--accent); font-family:'Space Grotesk',sans-serif; font-weight:700; }
 
-/* ── STEP BAR ── */
+/* ─── FEATURE CARDS (Home) ─── */
+.feat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.4rem; }
+.feat-card {
+  background:var(--surf); border:1px solid var(--border); border-radius:14px;
+  padding:1.6rem 1.2rem; text-align:center;
+  box-shadow:var(--sh);
+  transition:all .32s cubic-bezier(.22,.68,0,1.2);
+  position:relative; overflow:hidden;
+  animation:fadeSlideUp .5s ease both;
+}
+.feat-card::after {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,rgba(52,100,200,.04),rgba(107,63,202,.04));
+  opacity:0; transition:opacity .3s ease;
+}
+.feat-card:hover { transform:translateY(-8px) scale(1.02); box-shadow:var(--sh2); }
+.feat-card:hover::after { opacity:1; }
+.feat-icon {
+  font-size:2.2rem; margin-bottom:.6rem; display:block;
+  animation:float 3.2s ease-in-out infinite;
+}
+.feat-card:nth-child(2) .feat-icon { animation-delay:.3s; }
+.feat-card:nth-child(3) .feat-icon { animation-delay:.6s; }
+.feat-card:nth-child(4) .feat-icon { animation-delay:.9s; }
+.feat-title {
+  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:.9rem;
+  color:var(--text); margin-bottom:.35rem;
+}
+.feat-desc { font-size:.76rem; color:var(--text3); line-height:1.6; }
+
+/* ─── STAT COUNTERS (Home) ─── */
+.stat-row { display:grid; grid-template-columns:repeat(4,1fr); gap:.8rem; margin-bottom:1.4rem; }
+.stat-box {
+  background:linear-gradient(135deg,var(--accent),var(--purple));
+  border-radius:12px; padding:1.1rem 1rem; text-align:center;
+  box-shadow:0 4px 16px rgba(52,100,200,.25);
+  animation:popIn .6s ease both;
+}
+.stat-box:nth-child(2) { background:linear-gradient(135deg,var(--purple),var(--teal)); animation-delay:.1s; }
+.stat-box:nth-child(3) { background:linear-gradient(135deg,var(--teal),var(--green)); animation-delay:.2s; }
+.stat-box:nth-child(4) { background:linear-gradient(135deg,var(--gold),var(--orange)); animation-delay:.3s; }
+.stat-num {
+  font-family:'Space Grotesk',sans-serif; font-size:1.6rem; font-weight:800;
+  color:#fff; animation:countUp .8s cubic-bezier(.22,.68,0,1.2) .4s both;
+}
+.stat-lbl { font-size:.72rem; color:rgba(255,255,255,.82); font-weight:600; margin-top:.15rem; }
+
+/* ─── STEP BAR ─── */
 .step-row {
-  display: flex; margin-bottom: 1.8rem;
-  background: var(--surf); border: 1px solid var(--border);
-  border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow);
+  display:flex; margin-bottom:1.8rem;
+  background:var(--surf); border:1px solid var(--border);
+  border-radius:var(--r); overflow:hidden; box-shadow:var(--sh);
+  animation:fadeSlideUp .45s ease .05s both;
 }
 .step-item {
-  flex: 1; padding: .85rem; text-align: center;
-  font-size: .75rem; font-weight: 600; color: var(--text3);
-  border-right: 1px solid var(--border);
+  flex:1; padding:.9rem; text-align:center;
+  font-size:.73rem; font-weight:600; color:var(--text3);
+  border-right:1px solid var(--border);
+  transition:background .4s ease, color .3s ease;
 }
-.step-item:last-child { border-right: none; }
-.step-item.active { background: #eef3fc; color: var(--accent); }
-.step-item.done   { background: #f0faf5; color: var(--green); }
+.step-item:last-child { border-right:none; }
+.step-item.active {
+  background:linear-gradient(135deg,#eef2fc,#e8f0ff);
+  color:var(--accent);
+  animation:pulseRing 2.5s ease-in-out infinite;
+}
+.step-item.done { background:#e8f5ee; color:var(--green); }
+.step-item.done .step-num { animation:starSpin .5s ease both; }
 .step-num {
-  display: block; font-size: 1.15rem;
-  font-family: 'Sora', sans-serif; font-weight: 800; margin-bottom: 1px;
+  display:block; font-size:1.15rem;
+  font-family:'Space Grotesk',sans-serif; font-weight:800; margin-bottom:1px;
 }
 
-/* ── FORM BOX ── */
+/* ─── FORM BOX ─── */
 .form-box {
-  background: var(--surf); border: 1px solid var(--border);
-  border-radius: var(--r); padding: 1.7rem 1.9rem; margin-bottom: 1.2rem;
-  box-shadow: var(--shadow);
+  background:var(--surf); border:1px solid var(--border);
+  border-radius:var(--r); padding:1.8rem 2rem; margin-bottom:1.2rem;
+  box-shadow:var(--sh);
+  animation:fadeSlideUp .5s cubic-bezier(.22,.68,0,1.2) both;
+  transition:border-color .3s ease, box-shadow .3s ease;
+  position:relative; overflow:hidden;
 }
+.form-box::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  background:linear-gradient(90deg,var(--accent),var(--purple));
+  animation:borderTrail .8s ease .2s both;
+}
+.form-box:focus-within { border-color:var(--a2); box-shadow:0 4px 20px rgba(52,100,200,.12); }
 .form-box h3 {
-  font-family: 'Sora', sans-serif; font-size: .95rem; font-weight: 700;
-  color: var(--accent); margin: 0 0 1.1rem;
+  font-family:'Space Grotesk',sans-serif; font-size:1rem; font-weight:700;
+  color:var(--accent); margin:0 0 1.2rem;
+  animation:fadeSlideLeft .5s ease both;
 }
 
-/* ── BOBOT CHIP ── */
+/* ─── SECTION TITLE ─── */
+.sec {
+  font-family:'Space Grotesk',sans-serif; font-size:.94rem; font-weight:700;
+  color:var(--text); margin:1.6rem 0 .75rem;
+  padding-bottom:.35rem; border-bottom:2px solid var(--border);
+  animation:fadeSlideLeft .4s ease both;
+  position:relative;
+}
+.sec::after {
+  content:''; position:absolute; bottom:-2px; left:0;
+  height:2px; background:linear-gradient(90deg,var(--accent),var(--a2));
+  animation:typeBar .7s ease .2s both;
+}
+
+/* ─── CARDS ─── */
+.card {
+  background:var(--surf); border:1px solid var(--border);
+  border-radius:var(--r); padding:1.2rem 1.4rem; box-shadow:var(--sh);
+  transition:transform .28s ease, box-shadow .28s ease;
+  animation:fadeSlideUp .5s ease both;
+}
+.card:hover { transform:translateY(-4px); box-shadow:var(--sh2); }
+.kpi-lbl {
+  font-size:.67rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:.1em; color:var(--text3); margin-bottom:.3rem;
+}
+.kpi-val {
+  font-family:'Space Grotesk',sans-serif;
+  font-size:1.9rem; font-weight:800; line-height:1;
+  animation:countUp .6s cubic-bezier(.22,.68,0,1.2) .2s both;
+}
+.kpi-sub { font-size:.71rem; color:var(--text3); margin-top:.2rem; }
+
+/* Color tokens */
+.c-gold   { color:var(--gold)!important; }
+.c-green  { color:var(--green)!important; }
+.c-red    { color:var(--red)!important; }
+.c-orange { color:var(--orange)!important; }
+.c-blue   { color:var(--a2)!important; }
+.c-purple { color:var(--purple)!important; }
+.c-teal   { color:var(--teal)!important; }
+
+/* ─── ALERTS ─── */
+.al {
+  border-radius:var(--r); padding:1rem 1.3rem; margin-bottom:.9rem;
+  border-left:4px solid; font-size:.86rem; line-height:1.75; color:var(--text2);
+  box-shadow:var(--sh);
+  animation:fadeSlideRight .45s cubic-bezier(.22,.68,0,1.2) both;
+  transition:transform .22s ease, box-shadow .22s ease;
+}
+.al:hover { transform:translateX(5px); box-shadow:var(--sh2); }
+.al h4 { margin:0 0 .4rem; font-size:.9rem; font-weight:700; }
+.al ul { margin:.35rem 0 0; padding-left:1.3rem; }
+.al li { margin-bottom:.22rem; }
+.al strong { color:var(--text); }
+.al-s { background:#edfbf3; border-color:var(--green); } .al-s h4 { color:var(--green); }
+.al-w { background:#fff7ee; border-color:var(--orange); } .al-w h4 { color:var(--orange); }
+.al-d { background:#fff0f0; border-color:var(--red); }   .al-d h4 { color:var(--red); }
+.al-i { background:#eef2fc; border-color:var(--accent); } .al-i h4 { color:var(--accent); }
+.al-p { background:#f3eeff; border-color:var(--purple); } .al-p h4 { color:var(--purple); }
+
+/* ─── PROGRESS BARS ─── */
+.prog-wrap { margin-bottom:.75rem; }
+.prog-lbl { display:flex; justify-content:space-between; font-size:.79rem; font-weight:600; color:var(--text2); margin-bottom:5px; }
+.prog-bg { background:var(--surf2); border-radius:99px; height:10px; overflow:hidden; border:1px solid var(--border); }
+.prog-fill {
+  height:100%; border-radius:99px;
+  animation:progressGrow .9s cubic-bezier(.22,.68,0,1.2) .3s both;
+  position:relative; overflow:hidden;
+}
+.prog-fill::after {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.45) 50%,transparent 100%);
+  background-size:200% 100%;
+  animation:shimmer 2s ease 1.4s infinite;
+}
+
+/* ─── BOBOT CHIP ─── */
 .bobot-chip {
-  display: inline-flex; flex-direction: column; align-items: center;
-  background: #eef3fc; border: 1px solid #b8cff0;
-  border-radius: 8px; padding: .4rem .6rem; margin: .12rem;
+  display:inline-flex; flex-direction:column; align-items:center;
+  background:#eef2fc; border:1px solid #b8cff0;
+  border-radius:8px; padding:.4rem .65rem; margin:.12rem;
+  transition:transform .22s ease, background .22s ease;
+  animation:popIn .5s ease both;
 }
-.bobot-chip .sk { font-size: .63rem; color: var(--text3); margin-bottom: 1px; }
+.bobot-chip:hover { transform:scale(1.12) translateY(-2px); background:#dde8f8; }
+.bobot-chip .sk { font-size:.62rem; color:var(--text3); margin-bottom:2px; }
 .bobot-chip .bv {
-  font-size: .95rem; font-weight: 700; color: var(--accent2);
-  font-family: 'Sora', sans-serif;
+  font-size:.96rem; font-weight:800; color:var(--accent);
+  font-family:'Space Grotesk',sans-serif;
 }
 
-/* ── WEEK TABLE ── */
+/* ─── WEEK CARD ─── */
 .week-card {
-  background: var(--surf); border: 1px solid var(--border);
-  border-radius: 10px; padding: .95rem 1.1rem; margin-bottom: .6rem;
-  box-shadow: var(--shadow);
+  background:var(--surf); border:1px solid var(--border);
+  border-radius:12px; padding:1rem 1.2rem; margin-bottom:.65rem;
+  box-shadow:var(--sh);
+  transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+  animation:fadeSlideUp .5s ease both;
+  border-left:4px solid transparent;
 }
+.week-card:hover { transform:translateX(8px); border-left-color:var(--accent); box-shadow:var(--sh2); }
 .week-num {
-  font-family: 'Sora', sans-serif; font-size: .73rem; font-weight: 700;
-  color: var(--accent); text-transform: uppercase; letter-spacing: .08em;
-  margin-bottom: .25rem;
+  font-family:'Space Grotesk',sans-serif; font-size:.72rem; font-weight:700;
+  color:var(--accent); text-transform:uppercase; letter-spacing:.1em; margin-bottom:.28rem;
 }
-.week-target { font-size: .84rem; font-weight: 600; color: var(--text); margin-bottom: .22rem; }
-.week-tasks { font-size: .8rem; color: var(--text2); line-height: 1.65; }
+.week-target { font-size:.84rem; font-weight:700; color:var(--text); margin-bottom:.24rem; }
+.week-tasks { font-size:.79rem; color:var(--text2); line-height:1.68; }
 
-/* ── STREAMLIT OVERRIDES ── */
+/* ─── STATUS BADGE ─── */
+.status-badge {
+  display:inline-flex; align-items:center; gap:.45rem;
+  padding:.42rem 1.1rem; border-radius:99px;
+  font-size:.78rem; font-weight:700;
+  animation:popIn .6s ease both;
+}
+.sbg-sa { background:#e6f5ee; color:#148a42; border:1.5px solid #9adbb8; }
+.sbg-a  { background:#edf6ff; color:#1a5fa0; border:1.5px solid #90c0f0; }
+.sbg-k  { background:#fff4e6; color:#d4620a; border:1.5px solid #f4c08a; }
+.sbg-r  { background:#fff0f0; color:#c0392b; border:1.5px solid #f4a0a0; }
+.sb-dot {
+  width:8px; height:8px; border-radius:50%; display:inline-block;
+  animation:pulseRing 1.8s ease-in-out infinite;
+}
+.sbg-sa .sb-dot { background:#148a42; }
+.sbg-a  .sb-dot { background:#1a5fa0; }
+.sbg-k  .sb-dot { background:#d4620a; }
+.sbg-r  .sb-dot { background:#c0392b; }
+
+/* ─── SCORE RING ─── */
+.score-ring-wrap { display:flex; justify-content:center; padding:1rem 0; }
+.score-ring {
+  width:148px; height:148px; border-radius:50%;
+  background:conic-gradient(var(--accent) var(--pct,0%), #e8eef8 var(--pct,0%));
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  position:relative; animation:popIn .8s cubic-bezier(.22,.68,0,1.2) .1s both;
+  box-shadow:0 4px 24px rgba(52,100,200,.2);
+}
+.score-ring::before {
+  content:''; position:absolute; inset:13px; border-radius:50%;
+  background:var(--surf); box-shadow:inset 0 2px 10px rgba(52,100,200,.08);
+}
+.score-ring-val {
+  position:relative; z-index:1;
+  font-family:'Space Grotesk',sans-serif; font-size:1.65rem; font-weight:800;
+  color:var(--accent); animation:countUp .9s ease .5s both;
+}
+.score-ring-sub { position:relative; z-index:1; font-size:.62rem; color:var(--text3); }
+
+/* ─── STREAMLIT OVERRIDES ─── */
 div[data-testid="stButton"] button[kind="primary"] {
-  background: linear-gradient(135deg, #3b6cb7, #2a4a8c) !important;
-  color: #ffffff !important; font-weight: 700 !important;
-  font-family: 'Sora', sans-serif !important;
-  border: none !important; border-radius: 8px !important;
-  font-size: .88rem !important;
+  background:linear-gradient(135deg,var(--accent),#1a3470) !important;
+  color:#fff !important; font-weight:700 !important;
+  font-family:'Space Grotesk',sans-serif !important;
+  border:none !important; border-radius:10px !important;
+  font-size:.89rem !important; letter-spacing:.02em !important;
+  transition:all .28s cubic-bezier(.22,.68,0,1.2) !important;
+  position:relative !important; overflow:hidden !important;
+}
+div[data-testid="stButton"] button[kind="primary"]:hover {
+  transform:translateY(-3px) scale(1.02) !important;
+  box-shadow:0 8px 28px rgba(52,100,200,.4) !important;
 }
 div[data-testid="stButton"] button {
-  background: var(--surf) !important; color: var(--text2) !important;
-  border: 1px solid var(--border) !important; border-radius: 8px !important;
-  font-weight: 600 !important;
+  background:var(--surf) !important; color:var(--text2) !important;
+  border:1px solid var(--border) !important; border-radius:10px !important;
+  font-weight:600 !important; transition:all .22s ease !important;
+}
+div[data-testid="stButton"] button:hover {
+  border-color:var(--a2) !important; color:var(--accent) !important;
+  transform:translateY(-2px) !important;
+  box-shadow:0 4px 14px rgba(52,100,200,.15) !important;
 }
 div[data-testid="stTabs"] button[data-baseweb="tab"] {
-  font-family: 'Sora', sans-serif !important; font-weight: 600 !important;
-  font-size: .8rem !important; color: var(--text3) !important;
+  font-family:'Space Grotesk',sans-serif !important; font-weight:700 !important;
+  font-size:.79rem !important; color:var(--text3) !important;
+  transition:color .2s ease !important;
 }
 div[data-testid="stTabs"] button[aria-selected="true"] {
-  color: var(--accent) !important; border-bottom-color: var(--accent) !important;
+  color:var(--accent) !important; border-bottom-color:var(--accent) !important;
 }
 div[data-testid="stMetric"] {
-  background: var(--surf) !important; border: 1px solid var(--border) !important;
-  border-radius: var(--r) !important; padding: 1rem 1.2rem !important;
-  box-shadow: var(--shadow) !important;
+  background:var(--surf) !important; border:1px solid var(--border) !important;
+  border-radius:var(--r) !important; padding:1.1rem 1.3rem !important;
+  box-shadow:var(--sh) !important; animation:fadeSlideUp .5s ease both !important;
+  transition:transform .28s ease, box-shadow .28s ease !important;
+}
+div[data-testid="stMetric"]:hover {
+  transform:translateY(-4px) !important; box-shadow:var(--sh2) !important;
 }
 div[data-testid="stMetric"] label {
-  color: var(--text3) !important; font-size: .7rem !important;
-  font-weight: 600 !important; text-transform: uppercase !important; letter-spacing: .07em !important;
+  color:var(--text3) !important; font-size:.7rem !important;
+  font-weight:700 !important; text-transform:uppercase !important; letter-spacing:.08em !important;
 }
 div[data-testid="stMetric"] [data-testid="stMetricValue"] {
-  color: var(--text) !important; font-family: 'Sora', sans-serif !important;
+  color:var(--text) !important; font-family:'Space Grotesk',sans-serif !important;
+  animation:countUp .6s ease both !important;
 }
 div[data-testid="stExpander"] {
-  background: var(--surf) !important; border: 1px solid var(--border) !important;
-  border-radius: var(--r) !important; box-shadow: var(--shadow) !important;
+  background:var(--surf) !important; border:1px solid var(--border) !important;
+  border-radius:var(--r) !important; box-shadow:var(--sh) !important;
+  animation:fadeSlideUp .45s ease both !important;
+  transition:border-color .3s ease !important;
 }
-div[data-testid="stExpander"] summary { color: var(--text2) !important; font-weight: 600 !important; }
-div[data-testid="stNumberInput"] label,
-div[data-testid="stSelectbox"] label,
-div[data-testid="stTextInput"] label,
-div[data-testid="stRadio"] label {
-  color: var(--text2) !important; font-weight: 600 !important; font-size: .84rem !important;
+div[data-testid="stExpander"]:hover { border-color:var(--a2) !important; }
+div[data-testid="stExpander"] summary { color:var(--text2) !important; font-weight:700 !important; }
+div[data-testid="stNumberInput"] label,div[data-testid="stSelectbox"] label,
+div[data-testid="stTextInput"] label,div[data-testid="stRadio"] label {
+  color:var(--text2) !important; font-weight:700 !important; font-size:.83rem !important;
 }
-div[data-testid="stNumberInput"] input,
-div[data-testid="stTextInput"] input {
-  background: var(--surf) !important; color: var(--text) !important;
-  border-color: var(--border) !important; font-size: .9rem !important;
+div[data-testid="stNumberInput"] input,div[data-testid="stTextInput"] input {
+  background:var(--surf) !important; color:var(--text) !important;
+  border-color:var(--border) !important; font-size:.9rem !important;
+  transition:border-color .25s ease, box-shadow .25s ease !important; border-radius:8px !important;
 }
-.stCaption, [data-testid="stCaptionContainer"], .stCaption p {
-  color: var(--text3) !important; font-size: .77rem !important;
+div[data-testid="stNumberInput"] input:focus,div[data-testid="stTextInput"] input:focus {
+  border-color:var(--a2) !important; box-shadow:0 0 0 3px rgba(52,100,200,.14) !important;
 }
-hr { border-color: var(--border) !important; margin: 1.1rem 0 !important; }
-div[data-testid="stDataFrame"] { border-radius: 10px; overflow: hidden;
-  box-shadow: var(--shadow); }
-div[data-baseweb="select"] { background: var(--surf) !important; }
-div[data-baseweb="select"] * { color: var(--text) !important; }
+.stCaption,[data-testid="stCaptionContainer"],.stCaption p { color:var(--text3) !important; font-size:.76rem !important; }
+hr { border-color:var(--border) !important; margin:1.2rem 0 !important; }
+div[data-testid="stDataFrame"] { border-radius:12px; overflow:hidden; box-shadow:var(--sh); animation:fadeSlideUp .5s ease both; }
+div[data-baseweb="select"] { background:var(--surf) !important; }
+div[data-baseweb="select"] * { color:var(--text) !important; }
+div[data-testid="stSlider"] label { color:var(--text2) !important; font-weight:700 !important; font-size:.83rem !important; }
+table { border-collapse:collapse; width:100%; font-size:.84rem; }
+th { background:#eef2fc; color:var(--text); padding:.55rem .9rem; border:1px solid var(--border); font-weight:700; text-align:left; }
+td { padding:.5rem .9rem; border:1px solid var(--border); color:var(--text2); transition:background .15s ease; }
+tr:nth-child(even) td { background:#f8faff; }
+tr:hover td { background:#eef2fc !important; }
 
-/* Slider labels */
-div[data-testid="stSlider"] label {
-  color: var(--text2) !important; font-weight: 600 !important; font-size: .84rem !important;
-}
-/* Table in markdown */
-table { border-collapse: collapse; width: 100%; font-size: .85rem; }
-th { background: #eef3fc; color: var(--text); padding: .55rem .9rem;
-     border: 1px solid var(--border); font-weight: 600; text-align: left; }
-td { padding: .5rem .9rem; border: 1px solid var(--border); color: var(--text2); }
-tr:nth-child(even) td { background: #f7f9fc; }
+/* stagger helpers */
+.d1{animation-delay:.05s!important} .d2{animation-delay:.10s!important}
+.d3{animation-delay:.15s!important} .d4{animation-delay:.20s!important}
+.d5{animation-delay:.25s!important} .d6{animation-delay:.30s!important}
+.d7{animation-delay:.35s!important} .d8{animation-delay:.40s!important}
 </style>
 """, unsafe_allow_html=True)
-
-
 # ══════════════════════════════════════════════════════════
 # SESSION STATE
 # ══════════════════════════════════════════════════════════
@@ -1724,7 +1971,8 @@ def render_nav():
     s2 = "done" if p=="result" else "active" if p=="survey" else ""
     s3 = "active" if p=="result" else ""
     st.markdown(f"""<div class="topbar">
-      <div class="topbar-brand">🎯 SKORIA <span class="topbar-tag">AI UTBK Intelligence</span></div>
+      <div class="topbar-brand">🎯 SKORIA <span class="topbar-tag">AI UTBK Intelligence · S1 &amp; D3 · 2025/2026</span></div>
+      <div style="flex:1"></div>
       <div class="step-pill {s1}">{'✓' if p in ['survey','result'] else '①'} Beranda</div>
       <div class="step-pill {s2}">{'✓' if p=='result' else '②'} Input Data</div>
       <div class="step-pill {s3}">③ Hasil Analisis</div>
@@ -1735,11 +1983,12 @@ def render_nav():
 # HELPERS
 # ══════════════════════════════════════════════════════════
 def prog_bar(label, val, color):
+    pct = max(0, min(100, val))
     st.markdown(f"""<div class="prog-wrap">
       <div class="prog-lbl"><span>{label}</span>
-        <span style="color:{color};font-weight:700">{val:.0f}/100</span></div>
+        <span style="color:{color};font-weight:800;font-family:'Space Grotesk',sans-serif">{pct:.0f}/100</span></div>
       <div class="prog-bg">
-        <div class="prog-fill" style="width:{val:.0f}%;background:{color}"></div>
+        <div class="prog-fill" style="width:{pct:.0f}%;background:linear-gradient(90deg,{color},{color}cc)"></div>
       </div>
     </div>""", unsafe_allow_html=True)
 
@@ -1765,59 +2014,122 @@ def step_bar(cur):
 # PAGE: HOME
 # ══════════════════════════════════════════════════════════
 def page_home():
-    st.markdown("""<div class="hero">
-      <h1>SKORIA — Analisis Kesiapan<br><span>UTBK</span> Berbasis AI</h1>
-      <p>Platform kecerdasan buatan untuk memahami peluang, gap skor, dan strategi belajar<br>
-         yang dipersonalisasi. Data skor berbasis UTBK 2023/2024 per jurusan dan PTN.</p>
+    # ── Animated Ticker ──
+    st.markdown("""
+    <div class="ticker-wrap">
+      <div class="ticker-inner">
+        <span class="ticker-item">🎯 SKORIA v4.0 — AI UTBK Intelligence</span>
+        <span class="ticker-item">📊 Data SNPMB/BPPP Kemdikbud <span>2025/2026</span></span>
+        <span class="ticker-item">🎓 Jenjang <span>S1 Sarjana</span> &amp; <span>D3 Vokasi</span></span>
+        <span class="ticker-item">🏛️ <span>18 PTN</span> — Klaster 1 hingga 4</span>
+        <span class="ticker-item">📚 <span>34+</span> Jurusan S1 · <span>30+</span> Prodi D3</span>
+        <span class="ticker-item">🤖 Powered by <span>LightGBM AI</span></span>
+        <span class="ticker-item">📅 Rencana Belajar <span>8 Minggu</span> Personal</span>
+        <span class="ticker-item">🎯 SKORIA v4.0 — AI UTBK Intelligence</span>
+        <span class="ticker-item">📊 Data SNPMB/BPPP Kemdikbud <span>2025/2026</span></span>
+        <span class="ticker-item">🎓 Jenjang <span>S1 Sarjana</span> &amp; <span>D3 Vokasi</span></span>
+        <span class="ticker-item">🏛️ <span>18 PTN</span> — Klaster 1 hingga 4</span>
+        <span class="ticker-item">📚 <span>34+</span> Jurusan S1 · <span>30+</span> Prodi D3</span>
+        <span class="ticker-item">🤖 Powered by <span>LightGBM AI</span></span>
+        <span class="ticker-item">📅 Rencana Belajar <span>8 Minggu</span> Personal</span>
+      </div>
     </div>""", unsafe_allow_html=True)
 
-    c1,c2,c3,c4 = st.columns(4)
-    feats = [
-        ("📡","Radar Chart TPS","Visualisasi 7 subtes vs profil ideal jurusan"),
-        ("🎓","S1 & D3 Support","Data skor aman per jenjang, jurusan, & PTN berbasis SNPMB 2025/2026"),
-        ("📅","Rencana Mingguan","Jadwal belajar 8 minggu terstruktur"),
-        ("📄","Export PDF","Laporan lengkap dengan rencana belajar"),
-    ]
-    for col,(ico,ttl,desc) in zip([c1,c2,c3,c4],feats):
-        with col:
-            st.markdown(f"""<div class="card" style="text-align:center;padding:1.3rem">
-              <div style="font-size:1.8rem;margin-bottom:.4rem">{ico}</div>
-              <div style="font-family:'Sora',sans-serif;font-weight:700;font-size:.88rem;
-                          margin-bottom:.3rem;color:#1a2540">{ttl}</div>
-              <div style="font-size:.77rem;color:#6a7a95;line-height:1.55">{desc}</div>
-            </div>""", unsafe_allow_html=True)
+    # ── Hero ──
+    st.markdown("""<div class="hero">
+      <div class="hero-badge">🚀 v4.0 · S1 &amp; D3 · 18 PTN · 64+ Program Studi</div>
+      <h1>SKORIA — Analisis Kesiapan<br><span>UTBK</span> Berbasis AI</h1>
+      <p>Platform kecerdasan buatan untuk memahami peluang, gap skor, dan strategi belajar<br>
+         yang dipersonalisasi. Data skor S1 &amp; D3 berbasis SNPMB/BPPP Kemdikbud 2025/2026.</p>
+    </div>""", unsafe_allow_html=True)
 
+    # ── Animated Stat Counters ──
+    st.markdown("""<div class="stat-row">
+      <div class="stat-box">
+        <div class="stat-num">18</div>
+        <div class="stat-lbl">🏛️ PTN Terkover</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num">64+</div>
+        <div class="stat-lbl">📚 Program Studi</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num">7</div>
+        <div class="stat-lbl">📊 Subtes TPS</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num">8</div>
+        <div class="stat-lbl">📅 Minggu Belajar</div>
+      </div>
+    </div>""", unsafe_allow_html=True)
+
+    # ── Feature Cards ──
+    st.markdown("""<div class="feat-grid">
+      <div class="feat-card d1">
+        <span class="feat-icon">📡</span>
+        <div class="feat-title">Radar Chart TPS</div>
+        <div class="feat-desc">Visualisasi 7 subtes vs profil ideal jurusan yang dipilih</div>
+      </div>
+      <div class="feat-card d2">
+        <span class="feat-icon">🎓</span>
+        <div class="feat-title">S1 &amp; D3 Support</div>
+        <div class="feat-desc">Skor aman per jenjang, jurusan &amp; PTN berbasis SNPMB 2025/2026</div>
+      </div>
+      <div class="feat-card d3">
+        <span class="feat-icon">🤖</span>
+        <div class="feat-title">AI LightGBM</div>
+        <div class="feat-desc">Prediksi strategi belajar otomatis dari model machine learning</div>
+      </div>
+      <div class="feat-card d4">
+        <span class="feat-icon">📄</span>
+        <div class="feat-title">Export PDF</div>
+        <div class="feat-desc">Laporan lengkap 8 minggu terstruktur siap cetak</div>
+      </div>
+    </div>""", unsafe_allow_html=True)
+
+    # ── Animated divider ──
+    st.markdown('<div class="anim-div"></div>', unsafe_allow_html=True)
+
+    # ── About section ──
     st.markdown('<div class="sec">🤖 Tentang SKORIA</div>', unsafe_allow_html=True)
     st.markdown("""<div class="al al-i">
       <h4>SKORIA — Score Intelligence for UTBK</h4>
       Platform SKORIA mengintegrasikan <strong>Model LightGBM</strong> dengan analisis holistik:
       <ul>
-        <li>🎓 <strong>Support jenjang S1 (Sarjana) & D3 (Diploma Tiga)</strong> — 30+ prodi D3 dari 18 PTN</li>
-        <li>📊 Skor aman per jurusan, jenjang, & PTN berbasis <strong>SNPMB/BPPP Kemdikbud & media pendidikan 2025/2026</strong></li>
+        <li>🎓 <strong>Support jenjang S1 (Sarjana) &amp; D3 (Diploma Tiga)</strong> — 30+ prodi D3 dari 18 PTN</li>
+        <li>📊 Skor aman per jurusan, jenjang, &amp; PTN berbasis <strong>SNPMB/BPPP Kemdikbud 2025/2026</strong></li>
         <li>🧠 Evaluasi psikologis: fokus, percaya diri, kecemasan, distraksi</li>
-        <li>📡 Radar Chart TPS, Bar Chart, Pipeline Kontribusi, Klaster PTN</li>
+        <li>📡 Radar Chart, Bar Chart, Pipeline Kontribusi, Klaster PTN</li>
         <li>📅 Rencana belajar mingguan 8 minggu dengan target terukur</li>
-        <li>📄 Export PDF lengkap termasuk rencana mingguan</li>
-        <li>🎯 Gap analysis berbasis klaster PTN — skor maksimal 1000</li>
+        <li>📄 Export PDF lengkap · 🎯 Gap analysis berbasis klaster PTN</li>
       </ul>
     </div>""", unsafe_allow_html=True)
 
-    if lgbm_model:
-        st.markdown(f'<div class="al al-s"><h4>✅ Model AI Aktif</h4>File: <code>{lgbm_fname}</code> — Prediksi strategi belajar siap digunakan.</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="al al-w"><h4>⚠️ Model AI Tidak Ditemukan</h4>Letakkan <code>lgbm_model_2_.pkl</code> di folder yang sama. Kalkulasi manual tetap berjalan.</div>', unsafe_allow_html=True)
+    ai_status = f'<div class="al al-s"><h4>✅ Model AI Aktif</h4>File: <code>{lgbm_fname}</code> — Prediksi strategi belajar siap digunakan.</div>' if lgbm_model else '<div class="al al-w"><h4>⚠️ Model AI Tidak Ditemukan</h4>Letakkan <code>lgbm_model_2_.pkl</code> di folder yang sama. Kalkulasi manual tetap berjalan.</div>'
+    st.markdown(ai_status, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🚀  Mulai Analisis UTBK", type="primary"):
-        st.session_state.page="survey"; st.session_state.step=1; st.rerun()
+    col_cta, col_info = st.columns([2,3])
+    with col_cta:
+        if st.button("🚀  Mulai Analisis UTBK Sekarang", type="primary", use_container_width=True):
+            st.session_state.page="survey"; st.session_state.step=1; st.rerun()
+    with col_info:
+        st.markdown("""<div style="padding:.7rem 0;font-size:.81rem;color:#6a7a9a;line-height:1.8">
+          ⏱ Waktu pengisian: ~5 menit &nbsp;·&nbsp; 🔒 Data tidak tersimpan &nbsp;·&nbsp; 📱 Mobile friendly
+        </div>""", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════
 # PAGE: SURVEY (4 STEPS)
 # ══════════════════════════════════════════════════════════
 def step1():
+    # Animated step intro
+    st.markdown("""<div class="al al-i d1" style="margin-bottom:1rem;padding:.8rem 1.2rem">
+      <h4>👤 Langkah 1 dari 4 — Profil &amp; Target</h4>
+      Pilih jenjang, jurusan, dan kampus yang kamu tuju. Skor aman akan ditampilkan secara langsung.
+    </div>""", unsafe_allow_html=True)
     st.markdown('<div class="form-box">', unsafe_allow_html=True)
-    st.markdown('<h3>👤 Profil & Target</h3>', unsafe_allow_html=True)
+    st.markdown('<h3>👤 Profil &amp; Target</h3>', unsafe_allow_html=True)
     d = st.session_state.data
     nama    = st.text_input("Nama Lengkap", value=d.get("nama",""), placeholder="Nama kamu...")
 
@@ -1877,6 +2189,10 @@ def step1():
         st.session_state.step=2; st.rerun()
 
 def step2():
+    st.markdown("""<div class="al al-p d1" style="margin-bottom:1rem;padding:.8rem 1.2rem">
+      <h4>📊 Langkah 2 dari 4 — Skor TPS</h4>
+      Masukkan skor tryout terbaru untuk 7 subtes TPS. Radar chart akan update secara live!
+    </div>""", unsafe_allow_html=True)
     st.markdown('<div class="form-box">', unsafe_allow_html=True)
     st.markdown('<h3>📊 Skor TPS (Tes Potensi Skolastik)</h3>', unsafe_allow_html=True)
     st.caption(f"Masukkan skor tryout terbaru kamu. Skala: {SKOR_MIN_TPS} – {SKOR_MAX_TPS}")
@@ -1927,6 +2243,10 @@ def step2():
             st.session_state.data.update(skor); st.session_state.step=3; st.rerun()
 
 def step3():
+    st.markdown("""<div class="al al-w d1" style="margin-bottom:1rem;padding:.8rem 1.2rem">
+      <h4>🧠 Langkah 3 dari 4 — Kondisi Psikologis</h4>
+      Nilai kondisi mental dan emosional kamu saat belajar. Faktor ini mempengaruhi risiko underperform.
+    </div>""", unsafe_allow_html=True)
     st.markdown('<div class="form-box">', unsafe_allow_html=True)
     st.markdown('<h3>🧠 Kondisi Psikologis</h3>', unsafe_allow_html=True)
     st.caption("1 = Sangat Rendah · 5 = Sangat Tinggi")
@@ -1939,10 +2259,13 @@ def step3():
         cemas  = st.slider("😰 Tingkat Kecemasan (1=tenang, 5=sangat cemas)",1,5,d.get("cemas",3))
         distrak= st.slider("📱 Mudah Terdistraksi (1=fokus, 5=sangat mudah)",1,5,d.get("distrak",3))
     psiko = (fokus*1.5+pede*1.5+(6-cemas)+(6-distrak))/20*100
-    pc = "#1a8a4a" if psiko>=65 else "#c8890a" if psiko>=45 else "#c0392b"
-    st.markdown(f"""<div class="card" style="text-align:center;margin-top:.8rem">
-      <div class="kpi-lbl">Indeks Kesiapan Mental</div>
-      <div class="kpi-val" style="color:{pc}">{psiko:.0f}<span style="font-size:1rem;color:#6a7a95">/100</span></div>
+    pc = "#148a42" if psiko>=65 else "#d4900a" if psiko>=45 else "#c0392b"
+    pct_p = f"{psiko:.0f}%"
+    st.markdown(f"""<div class="score-ring-wrap">
+      <div class="score-ring" style="--pct:{pct_p};background:conic-gradient({pc} {pct_p},#e8eef8 {pct_p})">
+        <div class="score-ring-val" style="color:{pc}">{psiko:.0f}</div>
+        <div class="score-ring-sub">Mental Score</div>
+      </div>
     </div>""", unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     ca,cb = st.columns([1,5])
@@ -1954,6 +2277,10 @@ def step3():
             st.session_state.step=4; st.rerun()
 
 def step4():
+    st.markdown("""<div class="al al-s d1" style="margin-bottom:1rem;padding:.8rem 1.2rem">
+      <h4>📚 Langkah 4 dari 4 — Kebiasaan Belajar</h4>
+      Langkah terakhir! Ceritakan pola belajarmu. Data ini digunakan oleh model AI untuk rekomendasi strategi.
+    </div>""", unsafe_allow_html=True)
     st.markdown('<div class="form-box">', unsafe_allow_html=True)
     st.markdown('<h3>📚 Kebiasaan Belajar</h3>', unsafe_allow_html=True)
     d = st.session_state.data
@@ -1969,10 +2296,13 @@ def step4():
         rev = st.slider("🔄 Intensitas review soal salah/minggu (1–5)",1,5,d.get("review",3))
     jb = mj[js]; hb = mh[hs]
     konsist = min(100,(jb*2+hb*2.2+lat*1.8+try_*1.5+rev*1.5)*2)
-    kc = "#1a8a4a" if konsist>=65 else "#c8890a" if konsist>=45 else "#c0392b"
-    st.markdown(f"""<div class="card" style="text-align:center;margin-top:.8rem">
-      <div class="kpi-lbl">Indeks Konsistensi Belajar</div>
-      <div class="kpi-val" style="color:{kc}">{konsist:.0f}<span style="font-size:1rem;color:#6a7a95">/100</span></div>
+    kc = "#148a42" if konsist>=65 else "#d4900a" if konsist>=45 else "#c0392b"
+    pct_deg = f"{konsist:.0f}%"
+    st.markdown(f"""<div class="score-ring-wrap">
+      <div class="score-ring" style="--pct:{pct_deg};background:conic-gradient({kc} {pct_deg},#e8eef8 {pct_deg})">
+        <div class="score-ring-val" style="color:{kc}">{konsist:.0f}</div>
+        <div class="score-ring-sub">Konsistensi</div>
+      </div>
     </div>""", unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     ca,cb = st.columns([1,5])
@@ -2002,20 +2332,31 @@ def page_result():
     jenjang_lbl = r.get("jenjang","S1 (Sarjana)")
     jenjang_badge = "🎓 D3 Vokasi" if "D3" in jenjang_lbl else "🎓 S1 Sarjana"
 
-    st.markdown(f"""<div class="hero" style="padding:1.7rem 2.4rem">
-      <h1 style="font-size:1.55rem!important">{salam}, <span>{nama}!</span> 👋</h1>
-      <p>Hasil analisis <strong style="color:#ffd166">SKORIA</strong> untuk
-         <strong style="color:#ffd166">{jenjang_badge} — {r['jurusan']}</strong> di
-         <strong style="color:rgba(255,255,255,.9)">{r['kampus']}</strong> · Skor skala 1000</p>
+    # ── Status badge class ──
+    if r["pl"] == "Sangat Aman":    sb_cls, sb_dot_c = "sbg-sa", "✅"
+    elif r["pl"] == "Aman":         sb_cls, sb_dot_c = "sbg-a",  "✅"
+    elif r["pl"] == "Kompetitif":   sb_cls, sb_dot_c = "sbg-k",  "⚡"
+    else:                            sb_cls, sb_dot_c = "sbg-r",  "🔴"
+
+    st.markdown(f"""<div class="hero">
+      <div class="hero-badge">{jenjang_badge} · {r['jurusan']} · {r['kampus']}</div>
+      <h1 style="font-size:1.65rem!important">{salam}, <span>{nama}!</span> 👋</h1>
+      <p>Hasil analisis <strong style="color:#ffd166">SKORIA AI</strong> berdasarkan
+         skor TPS, psikologis, dan kebiasaan belajarmu · Skor skala 1000</p>
+      <div style="margin-top:1rem">
+        <span class="status-badge {sb_cls}">{sb_dot_c} Status: {r['pl']} · Skor {r['sw']:.0f}</span>
+        &nbsp;
+        <span class="status-badge sbg-a">📊 Peluang ~{r['ppct']:.0f}%</span>
+      </div>
     </div>""", unsafe_allow_html=True)
 
-    # ── KPI Row ──
+    # ── KPI Row with staggered animation ──
     gc = "c-green" if r["gap"]>=0 else "c-red"
     pc = "c-green" if r["ppct"]>=65 else "c-orange" if r["ppct"]>=35 else "c-red"
     kc = "c-green" if r["pl"] in ("Sangat Aman","Aman") else "c-orange" if r["pl"]=="Kompetitif" else "c-red"
 
     k1,k2,k3,k4,k5 = st.columns(5)
-    for col,lbl,val,cls,sub in [
+    for i,(col,lbl,val,cls,sub) in enumerate([
         (k1,"Skor Tertimbang",f"{r['sw']:.0f}",kc,"dari 1000"),
         (k2,"Rata-rata Subtes",f"{r['rata']:.0f}","c-blue","7 subtes"),
         (k3,"Peluang Lolos",f"{r['ppct']:.0f}%",pc,r["pl"]),
@@ -2023,15 +2364,16 @@ def page_result():
         (k5,"Risiko Underperform",r["risk"][0],
              "c-green" if r["risk"][0]=="Rendah" else "c-orange" if r["risk"][0]=="Sedang" else "c-red",
              r["risk"][1]),
-    ]:
+    ]):
         with col:
-            st.markdown(f"""<div class="card">
+            st.markdown(f"""<div class="card d{i+1}">
               <div class="kpi-lbl">{lbl}</div>
               <div class="kpi-val {cls}">{val}</div>
               <div class="kpi-sub">{sub}</div>
             </div>""", unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    # ── Animated divider ──
+    st.markdown('<div class="anim-div"></div>', unsafe_allow_html=True)
 
     # ── LGBM Banner ──
     if r.get("lgbm_r") and r["lgbm_r"].get("ok"):
