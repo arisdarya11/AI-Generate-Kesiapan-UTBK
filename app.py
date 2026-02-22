@@ -1,17 +1,22 @@
 """
 SKORIA — AI UTBK Readiness Dashboard v4.0
 Platform kecerdasan buatan untuk analisis kesiapan UTBK secara holistik
-Skor: 200–1000 | S1 | 30 PTN | 60 Program Studi
-Data: UTBK_SNBT_Estimasi_30PTN.xlsx (Historis 2022–2024, SNPMB/BPPP Kemdikbud)
+Skor maksimal: 1000 | Jenjang S1 & D3 | Multi-halaman | Charts | PDF Export
+Data skor aman berbasis SNPMB/BPPP Kemdikbud & referensi media pendidikan 2025/2026
+per jurusan, jenjang (S1/D3), dan PTN
 """
 
 import streamlit as st
 import numpy as np
 import pandas as pd
-import datetime
+import pickle, os, base64, datetime, json
 from typing import Dict, Tuple, List
 import plotly.graph_objects as go
+import plotly.express as px
 
+# ══════════════════════════════════════════════════════════
+# PAGE CONFIG
+# ══════════════════════════════════════════════════════════
 st.set_page_config(
     page_title="SKORIA — AI UTBK",
     page_icon="🎯",
@@ -19,3267 +24,2709 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# ══════════════════════════════════════════════════════════
+# GLOBAL CSS — Animated Design System v4.1
+# ══════════════════════════════════════════════════════════
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@600;700;800&display=swap');
-:root{--bg:#f0f4fa;--surf:#ffffff;--surf2:#f7f9fd;--border:#e0e8f4;--accent:#3464c8;--a2:#5080e0;--gold:#d4900a;--green:#148a42;--red:#c0392b;--orange:#d4620a;--purple:#6b3fca;--teal:#0d8a80;--text:#12203f;--text2:#334466;--text3:#6a7a9a;--r:12px;--sh:0 2px 12px rgba(30,60,140,.08);--sh2:0 8px 32px rgba(30,60,140,.15);}
-@keyframes fadeSlideUp{from{opacity:0;transform:translateY(30px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes fadeSlideLeft{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:translateX(0)}}
-@keyframes fadeSlideRight{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
-@keyframes popIn{0%{opacity:0;transform:scale(.5) rotate(-8deg)}65%{opacity:1;transform:scale(1.1) rotate(3deg)}85%{transform:scale(.96) rotate(-1deg)}100%{transform:scale(1) rotate(0)}}
-@keyframes pulseRing{0%,100%{box-shadow:0 0 0 0 rgba(52,100,200,.35)}50%{box-shadow:0 0 0 10px rgba(52,100,200,0)}}
-@keyframes orb{0%,100%{transform:scale(1) translate(0,0);opacity:.08}40%{transform:scale(1.18) translate(15px,-12px);opacity:.14}70%{transform:scale(.88) translate(-10px,14px);opacity:.04}}
-@keyframes float{0%,100%{transform:translateY(0px)}50%{transform:translateY(-8px)}}
-@keyframes shimmer{from{background-position:-600px 0}to{background-position:600px 0}}
-@keyframes progressGrow{from{width:0!important;opacity:.4}}
-@keyframes gradientFlow{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
-@keyframes countUp{from{opacity:0;transform:translateY(14px) scale(.8)}to{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes typeBar{from{width:0}}
-html,body,[class*="css"],.stApp{background:var(--bg)!important;font-family:'Plus Jakarta Sans',sans-serif!important;color:var(--text)!important;}
-#MainMenu,footer,header{visibility:hidden}.stDeployButton{display:none}
-.block-container{padding:1rem 1.5rem!important;max-width:100%!important;}
-.main .block-container{animation:fadeSlideUp .5s cubic-bezier(.22,.68,0,1.2) both;}
-.hero{background:linear-gradient(135deg,#1a3470 0%,#3464c8 55%,#2a50a8 100%);border-radius:16px;padding:2.4rem 3rem;margin-bottom:1.8rem;position:relative;overflow:hidden;box-shadow:0 6px 32px rgba(30,60,180,.22);animation:fadeSlideUp .65s cubic-bezier(.22,.68,0,1.2) both;}
-.hero::before{content:'';position:absolute;top:-70px;right:-70px;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.12) 0%,transparent 65%);animation:orb 7s ease-in-out infinite;}
-.hero h1{font-family:'Space Grotesk',sans-serif!important;font-size:2rem!important;font-weight:800!important;color:#fff!important;margin:0 0 .6rem!important;}
-.hero h1 span{color:#ffd166;}
-.hero p{color:rgba(255,255,255,.82)!important;font-size:.95rem;margin:0;line-height:1.7;}
-.hero-badge{display:inline-flex;align-items:center;gap:.4rem;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);padding:.3rem .85rem;border-radius:99px;font-size:.72rem;font-weight:600;color:rgba(255,255,255,.9);margin-bottom:1rem;}
-.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-bottom:1.4rem;}
-.stat-box{border-radius:12px;padding:1.1rem 1rem;text-align:center;box-shadow:0 4px 16px rgba(52,100,200,.25);animation:popIn .6s ease both;}
-.stat-box:nth-child(1){background:linear-gradient(135deg,var(--accent),var(--purple));}
-.stat-box:nth-child(2){background:linear-gradient(135deg,var(--purple),var(--teal));animation-delay:.1s;}
-.stat-box:nth-child(3){background:linear-gradient(135deg,var(--teal),var(--green));animation-delay:.2s;}
-.stat-box:nth-child(4){background:linear-gradient(135deg,var(--gold),var(--orange));animation-delay:.3s;}
-.stat-num{font-family:'Space Grotesk',sans-serif;font-size:1.6rem;font-weight:800;color:#fff;}
-.stat-lbl{font-size:.72rem;color:rgba(255,255,255,.82);font-weight:600;margin-top:.15rem;}
-.feat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.4rem;}
-.feat-card{background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:1.6rem 1.2rem;text-align:center;box-shadow:var(--sh);transition:all .32s cubic-bezier(.22,.68,0,1.2);animation:fadeSlideUp .5s ease both;}
-.feat-card:hover{transform:translateY(-8px) scale(1.02);box-shadow:var(--sh2);}
-.feat-icon{font-size:2.2rem;margin-bottom:.6rem;display:block;animation:float 3.2s ease-in-out infinite;}
-.feat-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:.9rem;color:var(--text);margin-bottom:.35rem;}
-.feat-desc{font-size:.76rem;color:var(--text3);line-height:1.6;}
-.form-box{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:1.8rem 2rem;margin-bottom:1.2rem;box-shadow:var(--sh);animation:fadeSlideUp .5s cubic-bezier(.22,.68,0,1.2) both;transition:border-color .3s ease,box-shadow .3s ease;position:relative;overflow:hidden;}
-.form-box::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--purple));}
-.form-box:focus-within{border-color:var(--a2);box-shadow:0 4px 20px rgba(52,100,200,.12);}
-.form-box h3{font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:700;color:var(--accent);margin:0 0 1.2rem;}
-.sec{font-family:'Space Grotesk',sans-serif;font-size:.94rem;font-weight:700;color:var(--text);margin:1.6rem 0 .75rem;padding-bottom:.35rem;border-bottom:2px solid var(--border);animation:fadeSlideLeft .4s ease both;position:relative;}
-.sec::after{content:'';position:absolute;bottom:-2px;left:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--a2));animation:typeBar .7s ease .2s both;}
-.card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:1.2rem 1.4rem;box-shadow:var(--sh);transition:transform .28s ease,box-shadow .28s ease;animation:fadeSlideUp .5s ease both;}
-.card:hover{transform:translateY(-4px);box-shadow:var(--sh2);}
-.kpi-lbl{font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:.3rem;}
-.kpi-val{font-family:'Space Grotesk',sans-serif;font-size:1.9rem;font-weight:800;line-height:1;animation:countUp .6s cubic-bezier(.22,.68,0,1.2) .2s both;}
-.kpi-sub{font-size:.71rem;color:var(--text3);margin-top:.2rem;}
-.c-gold{color:var(--gold)!important}.c-green{color:var(--green)!important}.c-red{color:var(--red)!important}.c-orange{color:var(--orange)!important}.c-blue{color:var(--a2)!important}.c-purple{color:var(--purple)!important}.c-teal{color:var(--teal)!important}
-.al{border-radius:var(--r);padding:1rem 1.3rem;margin-bottom:.9rem;border-left:4px solid;font-size:.86rem;line-height:1.75;color:var(--text2);box-shadow:var(--sh);animation:fadeSlideRight .45s cubic-bezier(.22,.68,0,1.2) both;}
-.al h4{margin:0 0 .4rem;font-size:.9rem;font-weight:700;}
-.al ul{margin:.35rem 0 0;padding-left:1.3rem;}
-.al li{margin-bottom:.22rem;}
-.al-s{background:#edfbf3;border-color:var(--green);}.al-s h4{color:var(--green);}
-.al-w{background:#fff7ee;border-color:var(--orange);}.al-w h4{color:var(--orange);}
-.al-d{background:#fff0f0;border-color:var(--red);}.al-d h4{color:var(--red);}
-.al-i{background:#eef2fc;border-color:var(--accent);}.al-i h4{color:var(--accent);}
-.al-p{background:#f3eeff;border-color:var(--purple);}.al-p h4{color:var(--purple);}
-.prog-wrap{margin-bottom:.75rem;}
-.prog-lbl{display:flex;justify-content:space-between;font-size:.79rem;font-weight:600;color:var(--text2);margin-bottom:5px;}
-.prog-bg{background:var(--surf2);border-radius:99px;height:10px;overflow:hidden;border:1px solid var(--border);}
-.prog-fill{height:100%;border-radius:99px;animation:progressGrow .9s cubic-bezier(.22,.68,0,1.2) .3s both;position:relative;overflow:hidden;}
-.prog-fill::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.45) 50%,transparent 100%);background-size:200% 100%;animation:shimmer 2s ease 1.4s infinite;}
-.week-card{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:1rem 1.2rem;margin-bottom:.65rem;box-shadow:var(--sh);transition:transform .25s ease,border-color .25s ease;animation:fadeSlideUp .5s ease both;border-left:4px solid transparent;}
-.week-card:hover{transform:translateX(8px);border-left-color:var(--accent);box-shadow:var(--sh2);}
-.week-num{font-family:'Space Grotesk',sans-serif;font-size:.72rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.28rem;}
-.week-target{font-size:.84rem;font-weight:700;color:var(--text);margin-bottom:.24rem;}
-.week-tasks{font-size:.79rem;color:var(--text2);line-height:1.68;}
-.status-badge{display:inline-flex;align-items:center;gap:.45rem;padding:.42rem 1.1rem;border-radius:99px;font-size:.78rem;font-weight:700;animation:popIn .6s ease both;}
-.sbg-sa{background:#e6f5ee;color:#148a42;border:1.5px solid #9adbb8;}.sbg-a{background:#edf6ff;color:#1a5fa0;border:1.5px solid #90c0f0;}.sbg-k{background:#fff4e6;color:#d4620a;border:1.5px solid #f4c08a;}.sbg-r{background:#fff0f0;color:#c0392b;border:1.5px solid #f4a0a0;}
-div[data-testid="stButton"] button[kind="primary"]{background:linear-gradient(135deg,var(--accent),#1a3470)!important;color:#fff!important;font-weight:700!important;font-family:'Space Grotesk',sans-serif!important;border:none!important;border-radius:10px!important;font-size:.89rem!important;transition:all .28s cubic-bezier(.22,.68,0,1.2)!important;}
-div[data-testid="stButton"] button[kind="primary"]:hover{transform:translateY(-3px) scale(1.02)!important;box-shadow:0 8px 28px rgba(52,100,200,.4)!important;}
-div[data-testid="stButton"] button{background:var(--surf)!important;color:var(--text2)!important;border:1px solid var(--border)!important;border-radius:10px!important;font-weight:600!important;transition:all .22s ease!important;}
-div[data-testid="stButton"] button:hover{border-color:var(--a2)!important;color:var(--accent)!important;transform:translateY(-2px)!important;}
-div[data-testid="stMetric"]{background:var(--surf)!important;border:1px solid var(--border)!important;border-radius:var(--r)!important;padding:1.1rem 1.3rem!important;box-shadow:var(--sh)!important;transition:transform .28s ease!important;}
-div[data-testid="stMetric"]:hover{transform:translateY(-4px)!important;box-shadow:var(--sh2)!important;}
-div[data-testid="stMetric"] label{color:var(--text3)!important;font-size:.7rem!important;font-weight:700!important;text-transform:uppercase!important;letter-spacing:.08em!important;}
-div[data-testid="stMetric"] [data-testid="stMetricValue"]{color:var(--text)!important;font-family:'Space Grotesk',sans-serif!important;}
-div[data-testid="stExpander"]{background:var(--surf)!important;border:1px solid var(--border)!important;border-radius:var(--r)!important;box-shadow:var(--sh)!important;}
-div[data-testid="stNumberInput"] label,div[data-testid="stSelectbox"] label,div[data-testid="stTextInput"] label,div[data-testid="stRadio"] label{color:var(--text2)!important;font-weight:700!important;font-size:.83rem!important;}
-div[data-testid="stNumberInput"] input,div[data-testid="stTextInput"] input{background:var(--surf)!important;color:var(--text)!important;border-color:var(--border)!important;font-size:.9rem!important;border-radius:8px!important;}
-table{border-collapse:collapse;width:100%;font-size:.84rem;}
-th{background:#eef2fc;color:var(--text);padding:.55rem .9rem;border:1px solid var(--border);font-weight:700;text-align:left;}
-td{padding:.5rem .9rem;border:1px solid var(--border);color:var(--text2);}
-tr:nth-child(even) td{background:#f8faff;}
-tr:hover td{background:#eef2fc!important;}
-.anim-div{height:2px;border-radius:99px;margin:1.2rem 0;background:linear-gradient(90deg,var(--accent),var(--purple),var(--teal),var(--gold),var(--accent));background-size:300% auto;animation:gradientFlow 4s linear infinite;}
+
+:root {
+  --bg:      #f0f4fa;
+  --surf:    #ffffff;
+  --surf2:   #f7f9fd;
+  --border:  #e0e8f4;
+  --accent:  #3464c8;
+  --a2:      #5080e0;
+  --gold:    #d4900a;
+  --green:   #148a42;
+  --red:     #c0392b;
+  --orange:  #d4620a;
+  --purple:  #6b3fca;
+  --teal:    #0d8a80;
+  --text:    #12203f;
+  --text2:   #334466;
+  --text3:   #6a7a9a;
+  --r:       12px;
+  --sh:      0 2px 12px rgba(30,60,140,.08);
+  --sh2:     0 8px 32px rgba(30,60,140,.15);
+}
+
+/* ─── KEYFRAMES ─── */
+@keyframes fadeSlideUp {
+  from { opacity:0; transform:translateY(30px) scale(.97); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+@keyframes fadeSlideLeft {
+  from { opacity:0; transform:translateX(-24px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+@keyframes fadeSlideRight {
+  from { opacity:0; transform:translateX(24px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+@keyframes popIn {
+  0%   { opacity:0; transform:scale(.5) rotate(-8deg); }
+  65%  { opacity:1; transform:scale(1.1) rotate(3deg); }
+  85%  { transform:scale(.96) rotate(-1deg); }
+  100% { transform:scale(1) rotate(0); }
+}
+@keyframes pulseRing {
+  0%,100% { box-shadow: 0 0 0 0 rgba(52,100,200,.35); }
+  50%      { box-shadow: 0 0 0 10px rgba(52,100,200,0); }
+}
+@keyframes orb {
+  0%,100% { transform:scale(1) translate(0,0); opacity:.08; }
+  40%      { transform:scale(1.18) translate(15px,-12px); opacity:.14; }
+  70%      { transform:scale(.88) translate(-10px,14px); opacity:.04; }
+}
+@keyframes float {
+  0%,100% { transform:translateY(0px); }
+  50%      { transform:translateY(-8px); }
+}
+@keyframes shimmer {
+  from { background-position:-600px 0; }
+  to   { background-position:600px 0; }
+}
+@keyframes progressGrow {
+  from { width:0 !important; opacity:.4; }
+}
+@keyframes gradientFlow {
+  0%,100% { background-position:0% 50%; }
+  50%      { background-position:100% 50%; }
+}
+@keyframes ticker {
+  from { transform:translateX(0); }
+  to   { transform:translateX(-50%); }
+}
+@keyframes spinSlow {
+  to { transform:rotate(360deg); }
+}
+@keyframes typeBar {
+  from { width:0; }
+}
+@keyframes countUp {
+  from { opacity:0; transform:translateY(14px) scale(.8); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+@keyframes rippleOut {
+  from { transform:scale(0); opacity:.6; }
+  to   { transform:scale(3); opacity:0; }
+}
+@keyframes borderTrail {
+  0%   { clip-path:inset(0 100% 0 0); }
+  100% { clip-path:inset(0 0% 0 0); }
+}
+@keyframes starSpin {
+  0%   { opacity:0; transform:rotate(-30deg) scale(0); }
+  60%  { opacity:1; transform:rotate(10deg) scale(1.2); }
+  100% { opacity:1; transform:rotate(0) scale(1); }
+}
+
+/* ─── GLOBAL ─── */
+html,body,[class*="css"],.stApp {
+  background: var(--bg) !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  color: var(--text) !important;
+}
+#MainMenu, footer, header { visibility:hidden }
+.stDeployButton { display:none }
+.block-container { padding:1rem 1.5rem !important; max-width:100% !important; }
+
+/* Page entry */
+.main .block-container { animation: fadeSlideUp .5s cubic-bezier(.22,.68,0,1.2) both; }
+
+/* ─── TOPBAR ─── */
+.topbar {
+  background:#fff;
+  border-bottom:2px solid var(--border);
+  padding:.6rem 2rem;
+  display:flex; align-items:center; gap:1.2rem;
+  margin:-1rem -1.5rem 1.5rem -1.5rem;
+  position:sticky; top:0; z-index:999;
+  box-shadow:0 2px 12px rgba(30,60,140,.07);
+  animation:fadeSlideLeft .4s ease both;
+}
+.topbar-brand {
+  font-family:'Space Grotesk',sans-serif;
+  font-size:1.1rem; font-weight:800;
+  color:var(--accent) !important;
+  display:flex; align-items:center; gap:.5rem;
+  animation:float 4s ease-in-out infinite;
+}
+.topbar-tag { font-size:.68rem; color:var(--text3); letter-spacing:.04em; }
+.step-pill {
+  font-size:.72rem; font-weight:600;
+  padding:.26rem .8rem; border-radius:99px;
+  color:var(--text3); background:var(--surf2);
+  border:1px solid var(--border);
+  transition:all .3s ease;
+}
+.step-pill.done  { background:#e6f5ee; color:var(--green); border-color:#9adbb8; animation:popIn .5s ease both; }
+.step-pill.active{ background:#eef2fc; color:var(--accent); border-color:#aac0f0; animation:pulseRing 2.5s ease-in-out infinite; }
+
+/* ─── HERO ─── */
+.hero {
+  background:linear-gradient(135deg,#1a3470 0%,#3464c8 55%,#2a50a8 100%);
+  border-radius:16px; padding:2.4rem 3rem;
+  margin-bottom:1.8rem; position:relative; overflow:hidden;
+  box-shadow:0 6px 32px rgba(30,60,180,.22);
+  animation:fadeSlideUp .65s cubic-bezier(.22,.68,0,1.2) both;
+}
+.hero::before {
+  content:''; position:absolute; top:-70px; right:-70px;
+  width:320px; height:320px; border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.12) 0%,transparent 65%);
+  animation:orb 7s ease-in-out infinite;
+}
+.hero::after {
+  content:''; position:absolute; bottom:-90px; left:8%;
+  width:240px; height:240px; border-radius:50%;
+  background:radial-gradient(circle,rgba(255,209,102,.09) 0%,transparent 65%);
+  animation:orb 9s ease-in-out infinite reverse;
+}
+.hero h1 {
+  font-family:'Space Grotesk',sans-serif !important;
+  font-size:2rem !important; font-weight:800 !important;
+  color:#fff !important; margin:0 0 .6rem !important;
+  animation:fadeSlideLeft .7s cubic-bezier(.22,.68,0,1.2) .1s both;
+}
+.hero h1 span { color:#ffd166; }
+.hero p {
+  color:rgba(255,255,255,.82) !important; font-size:.95rem; margin:0; line-height:1.7;
+  animation:fadeSlideUp .7s ease .2s both;
+}
+.hero-badge {
+  display:inline-flex; align-items:center; gap:.4rem;
+  background:rgba(255,255,255,.12); backdrop-filter:blur(4px);
+  border:1px solid rgba(255,255,255,.2);
+  padding:.3rem .85rem; border-radius:99px;
+  font-size:.72rem; font-weight:600; color:rgba(255,255,255,.9);
+  margin-bottom:1rem; animation:fadeSlideLeft .5s ease .05s both;
+}
+
+/* ─── ANIMATED DIVIDER ─── */
+.anim-div {
+  height:2px; border-radius:99px; margin:1.2rem 0;
+  background:linear-gradient(90deg,var(--accent),var(--purple),var(--teal),var(--gold),var(--accent));
+  background-size:300% auto;
+  animation:gradientFlow 4s linear infinite;
+}
+
+/* ─── TICKER ─── */
+.ticker-wrap {
+  overflow:hidden; white-space:nowrap;
+  background:linear-gradient(90deg,#eef2fc,#f2eeff,#eef6fc);
+  background-size:200% auto; animation:gradientFlow 6s linear infinite;
+  border:1px solid var(--border); border-radius:10px;
+  padding:.5rem 0; margin-bottom:1.3rem;
+}
+.ticker-inner { display:inline-block; animation:ticker 28s linear infinite; }
+.ticker-item { display:inline-block; padding:0 2.8rem; font-size:.8rem; font-weight:600; color:var(--text2); }
+.ticker-item span { color:var(--accent); font-family:'Space Grotesk',sans-serif; font-weight:700; }
+
+/* ─── FEATURE CARDS (Home) ─── */
+.feat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.4rem; }
+.feat-card {
+  background:var(--surf); border:1px solid var(--border); border-radius:14px;
+  padding:1.6rem 1.2rem; text-align:center;
+  box-shadow:var(--sh);
+  transition:all .32s cubic-bezier(.22,.68,0,1.2);
+  position:relative; overflow:hidden;
+  animation:fadeSlideUp .5s ease both;
+}
+.feat-card::after {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,rgba(52,100,200,.04),rgba(107,63,202,.04));
+  opacity:0; transition:opacity .3s ease;
+}
+.feat-card:hover { transform:translateY(-8px) scale(1.02); box-shadow:var(--sh2); }
+.feat-card:hover::after { opacity:1; }
+.feat-icon {
+  font-size:2.2rem; margin-bottom:.6rem; display:block;
+  animation:float 3.2s ease-in-out infinite;
+}
+.feat-card:nth-child(2) .feat-icon { animation-delay:.3s; }
+.feat-card:nth-child(3) .feat-icon { animation-delay:.6s; }
+.feat-card:nth-child(4) .feat-icon { animation-delay:.9s; }
+.feat-title {
+  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:.9rem;
+  color:var(--text); margin-bottom:.35rem;
+}
+.feat-desc { font-size:.76rem; color:var(--text3); line-height:1.6; }
+
+/* ─── STAT COUNTERS (Home) ─── */
+.stat-row { display:grid; grid-template-columns:repeat(4,1fr); gap:.8rem; margin-bottom:1.4rem; }
+.stat-box {
+  background:linear-gradient(135deg,var(--accent),var(--purple));
+  border-radius:12px; padding:1.1rem 1rem; text-align:center;
+  box-shadow:0 4px 16px rgba(52,100,200,.25);
+  animation:popIn .6s ease both;
+}
+.stat-box:nth-child(2) { background:linear-gradient(135deg,var(--purple),var(--teal)); animation-delay:.1s; }
+.stat-box:nth-child(3) { background:linear-gradient(135deg,var(--teal),var(--green)); animation-delay:.2s; }
+.stat-box:nth-child(4) { background:linear-gradient(135deg,var(--gold),var(--orange)); animation-delay:.3s; }
+.stat-num {
+  font-family:'Space Grotesk',sans-serif; font-size:1.6rem; font-weight:800;
+  color:#fff; animation:countUp .8s cubic-bezier(.22,.68,0,1.2) .4s both;
+}
+.stat-lbl { font-size:.72rem; color:rgba(255,255,255,.82); font-weight:600; margin-top:.15rem; }
+
+/* ─── STEP BAR ─── */
+.step-row {
+  display:flex; margin-bottom:1.8rem;
+  background:var(--surf); border:1px solid var(--border);
+  border-radius:var(--r); overflow:hidden; box-shadow:var(--sh);
+  animation:fadeSlideUp .45s ease .05s both;
+}
+.step-item {
+  flex:1; padding:.9rem; text-align:center;
+  font-size:.73rem; font-weight:600; color:var(--text3);
+  border-right:1px solid var(--border);
+  transition:background .4s ease, color .3s ease;
+}
+.step-item:last-child { border-right:none; }
+.step-item.active {
+  background:linear-gradient(135deg,#eef2fc,#e8f0ff);
+  color:var(--accent);
+  animation:pulseRing 2.5s ease-in-out infinite;
+}
+.step-item.done { background:#e8f5ee; color:var(--green); }
+.step-item.done .step-num { animation:starSpin .5s ease both; }
+.step-num {
+  display:block; font-size:1.15rem;
+  font-family:'Space Grotesk',sans-serif; font-weight:800; margin-bottom:1px;
+}
+
+/* ─── FORM BOX ─── */
+.form-box {
+  background:var(--surf); border:1px solid var(--border);
+  border-radius:var(--r); padding:1.8rem 2rem; margin-bottom:1.2rem;
+  box-shadow:var(--sh);
+  animation:fadeSlideUp .5s cubic-bezier(.22,.68,0,1.2) both;
+  transition:border-color .3s ease, box-shadow .3s ease;
+  position:relative; overflow:hidden;
+}
+.form-box::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  background:linear-gradient(90deg,var(--accent),var(--purple));
+  animation:borderTrail .8s ease .2s both;
+}
+.form-box:focus-within { border-color:var(--a2); box-shadow:0 4px 20px rgba(52,100,200,.12); }
+.form-box h3 {
+  font-family:'Space Grotesk',sans-serif; font-size:1rem; font-weight:700;
+  color:var(--accent); margin:0 0 1.2rem;
+  animation:fadeSlideLeft .5s ease both;
+}
+
+/* ─── SECTION TITLE ─── */
+.sec {
+  font-family:'Space Grotesk',sans-serif; font-size:.94rem; font-weight:700;
+  color:var(--text); margin:1.6rem 0 .75rem;
+  padding-bottom:.35rem; border-bottom:2px solid var(--border);
+  animation:fadeSlideLeft .4s ease both;
+  position:relative;
+}
+.sec::after {
+  content:''; position:absolute; bottom:-2px; left:0;
+  height:2px; background:linear-gradient(90deg,var(--accent),var(--a2));
+  animation:typeBar .7s ease .2s both;
+}
+
+/* ─── CARDS ─── */
+.card {
+  background:var(--surf); border:1px solid var(--border);
+  border-radius:var(--r); padding:1.2rem 1.4rem; box-shadow:var(--sh);
+  transition:transform .28s ease, box-shadow .28s ease;
+  animation:fadeSlideUp .5s ease both;
+}
+.card:hover { transform:translateY(-4px); box-shadow:var(--sh2); }
+.kpi-lbl {
+  font-size:.67rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:.1em; color:var(--text3); margin-bottom:.3rem;
+}
+.kpi-val {
+  font-family:'Space Grotesk',sans-serif;
+  font-size:1.9rem; font-weight:800; line-height:1;
+  animation:countUp .6s cubic-bezier(.22,.68,0,1.2) .2s both;
+}
+.kpi-sub { font-size:.71rem; color:var(--text3); margin-top:.2rem; }
+
+/* Color tokens */
+.c-gold   { color:var(--gold)!important; }
+.c-green  { color:var(--green)!important; }
+.c-red    { color:var(--red)!important; }
+.c-orange { color:var(--orange)!important; }
+.c-blue   { color:var(--a2)!important; }
+.c-purple { color:var(--purple)!important; }
+.c-teal   { color:var(--teal)!important; }
+
+/* ─── ALERTS ─── */
+.al {
+  border-radius:var(--r); padding:1rem 1.3rem; margin-bottom:.9rem;
+  border-left:4px solid; font-size:.86rem; line-height:1.75; color:var(--text2);
+  box-shadow:var(--sh);
+  animation:fadeSlideRight .45s cubic-bezier(.22,.68,0,1.2) both;
+  transition:transform .22s ease, box-shadow .22s ease;
+}
+.al:hover { transform:translateX(5px); box-shadow:var(--sh2); }
+.al h4 { margin:0 0 .4rem; font-size:.9rem; font-weight:700; }
+.al ul { margin:.35rem 0 0; padding-left:1.3rem; }
+.al li { margin-bottom:.22rem; }
+.al strong { color:var(--text); }
+.al-s { background:#edfbf3; border-color:var(--green); } .al-s h4 { color:var(--green); }
+.al-w { background:#fff7ee; border-color:var(--orange); } .al-w h4 { color:var(--orange); }
+.al-d { background:#fff0f0; border-color:var(--red); }   .al-d h4 { color:var(--red); }
+.al-i { background:#eef2fc; border-color:var(--accent); } .al-i h4 { color:var(--accent); }
+.al-p { background:#f3eeff; border-color:var(--purple); } .al-p h4 { color:var(--purple); }
+
+/* ─── PROGRESS BARS ─── */
+.prog-wrap { margin-bottom:.75rem; }
+.prog-lbl { display:flex; justify-content:space-between; font-size:.79rem; font-weight:600; color:var(--text2); margin-bottom:5px; }
+.prog-bg { background:var(--surf2); border-radius:99px; height:10px; overflow:hidden; border:1px solid var(--border); }
+.prog-fill {
+  height:100%; border-radius:99px;
+  animation:progressGrow .9s cubic-bezier(.22,.68,0,1.2) .3s both;
+  position:relative; overflow:hidden;
+}
+.prog-fill::after {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.45) 50%,transparent 100%);
+  background-size:200% 100%;
+  animation:shimmer 2s ease 1.4s infinite;
+}
+
+/* ─── BOBOT CHIP ─── */
+.bobot-chip {
+  display:inline-flex; flex-direction:column; align-items:center;
+  background:#eef2fc; border:1px solid #b8cff0;
+  border-radius:8px; padding:.4rem .65rem; margin:.12rem;
+  transition:transform .22s ease, background .22s ease;
+  animation:popIn .5s ease both;
+}
+.bobot-chip:hover { transform:scale(1.12) translateY(-2px); background:#dde8f8; }
+.bobot-chip .sk { font-size:.62rem; color:var(--text3); margin-bottom:2px; }
+.bobot-chip .bv {
+  font-size:.96rem; font-weight:800; color:var(--accent);
+  font-family:'Space Grotesk',sans-serif;
+}
+
+/* ─── WEEK CARD ─── */
+.week-card {
+  background:var(--surf); border:1px solid var(--border);
+  border-radius:12px; padding:1rem 1.2rem; margin-bottom:.65rem;
+  box-shadow:var(--sh);
+  transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+  animation:fadeSlideUp .5s ease both;
+  border-left:4px solid transparent;
+}
+.week-card:hover { transform:translateX(8px); border-left-color:var(--accent); box-shadow:var(--sh2); }
+.week-num {
+  font-family:'Space Grotesk',sans-serif; font-size:.72rem; font-weight:700;
+  color:var(--accent); text-transform:uppercase; letter-spacing:.1em; margin-bottom:.28rem;
+}
+.week-target { font-size:.84rem; font-weight:700; color:var(--text); margin-bottom:.24rem; }
+.week-tasks { font-size:.79rem; color:var(--text2); line-height:1.68; }
+
+/* ─── STATUS BADGE ─── */
+.status-badge {
+  display:inline-flex; align-items:center; gap:.45rem;
+  padding:.42rem 1.1rem; border-radius:99px;
+  font-size:.78rem; font-weight:700;
+  animation:popIn .6s ease both;
+}
+.sbg-sa { background:#e6f5ee; color:#148a42; border:1.5px solid #9adbb8; }
+.sbg-a  { background:#edf6ff; color:#1a5fa0; border:1.5px solid #90c0f0; }
+.sbg-k  { background:#fff4e6; color:#d4620a; border:1.5px solid #f4c08a; }
+.sbg-r  { background:#fff0f0; color:#c0392b; border:1.5px solid #f4a0a0; }
+.sb-dot {
+  width:8px; height:8px; border-radius:50%; display:inline-block;
+  animation:pulseRing 1.8s ease-in-out infinite;
+}
+.sbg-sa .sb-dot { background:#148a42; }
+.sbg-a  .sb-dot { background:#1a5fa0; }
+.sbg-k  .sb-dot { background:#d4620a; }
+.sbg-r  .sb-dot { background:#c0392b; }
+
+/* ─── SCORE RING ─── */
+.score-ring-wrap { display:flex; justify-content:center; padding:1rem 0; }
+.score-ring {
+  width:148px; height:148px; border-radius:50%;
+  background:conic-gradient(var(--accent) var(--pct,0%), #e8eef8 var(--pct,0%));
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  position:relative; animation:popIn .8s cubic-bezier(.22,.68,0,1.2) .1s both;
+  box-shadow:0 4px 24px rgba(52,100,200,.2);
+}
+.score-ring::before {
+  content:''; position:absolute; inset:13px; border-radius:50%;
+  background:var(--surf); box-shadow:inset 0 2px 10px rgba(52,100,200,.08);
+}
+.score-ring-val {
+  position:relative; z-index:1;
+  font-family:'Space Grotesk',sans-serif; font-size:1.65rem; font-weight:800;
+  color:var(--accent); animation:countUp .9s ease .5s both;
+}
+.score-ring-sub { position:relative; z-index:1; font-size:.62rem; color:var(--text3); }
+
+/* ─── STREAMLIT OVERRIDES ─── */
+div[data-testid="stButton"] button[kind="primary"] {
+  background:linear-gradient(135deg,var(--accent),#1a3470) !important;
+  color:#fff !important; font-weight:700 !important;
+  font-family:'Space Grotesk',sans-serif !important;
+  border:none !important; border-radius:10px !important;
+  font-size:.89rem !important; letter-spacing:.02em !important;
+  transition:all .28s cubic-bezier(.22,.68,0,1.2) !important;
+  position:relative !important; overflow:hidden !important;
+}
+div[data-testid="stButton"] button[kind="primary"]:hover {
+  transform:translateY(-3px) scale(1.02) !important;
+  box-shadow:0 8px 28px rgba(52,100,200,.4) !important;
+}
+div[data-testid="stButton"] button {
+  background:var(--surf) !important; color:var(--text2) !important;
+  border:1px solid var(--border) !important; border-radius:10px !important;
+  font-weight:600 !important; transition:all .22s ease !important;
+}
+div[data-testid="stButton"] button:hover {
+  border-color:var(--a2) !important; color:var(--accent) !important;
+  transform:translateY(-2px) !important;
+  box-shadow:0 4px 14px rgba(52,100,200,.15) !important;
+}
+div[data-testid="stTabs"] button[data-baseweb="tab"] {
+  font-family:'Space Grotesk',sans-serif !important; font-weight:700 !important;
+  font-size:.79rem !important; color:var(--text3) !important;
+  transition:color .2s ease !important;
+}
+div[data-testid="stTabs"] button[aria-selected="true"] {
+  color:var(--accent) !important; border-bottom-color:var(--accent) !important;
+}
+div[data-testid="stMetric"] {
+  background:var(--surf) !important; border:1px solid var(--border) !important;
+  border-radius:var(--r) !important; padding:1.1rem 1.3rem !important;
+  box-shadow:var(--sh) !important; animation:fadeSlideUp .5s ease both !important;
+  transition:transform .28s ease, box-shadow .28s ease !important;
+}
+div[data-testid="stMetric"]:hover {
+  transform:translateY(-4px) !important; box-shadow:var(--sh2) !important;
+}
+div[data-testid="stMetric"] label {
+  color:var(--text3) !important; font-size:.7rem !important;
+  font-weight:700 !important; text-transform:uppercase !important; letter-spacing:.08em !important;
+}
+div[data-testid="stMetric"] [data-testid="stMetricValue"] {
+  color:var(--text) !important; font-family:'Space Grotesk',sans-serif !important;
+  animation:countUp .6s ease both !important;
+}
+div[data-testid="stExpander"] {
+  background:var(--surf) !important; border:1px solid var(--border) !important;
+  border-radius:var(--r) !important; box-shadow:var(--sh) !important;
+  animation:fadeSlideUp .45s ease both !important;
+  transition:border-color .3s ease !important;
+}
+div[data-testid="stExpander"]:hover { border-color:var(--a2) !important; }
+div[data-testid="stExpander"] summary { color:var(--text2) !important; font-weight:700 !important; }
+div[data-testid="stNumberInput"] label,div[data-testid="stSelectbox"] label,
+div[data-testid="stTextInput"] label,div[data-testid="stRadio"] label {
+  color:var(--text2) !important; font-weight:700 !important; font-size:.83rem !important;
+}
+div[data-testid="stNumberInput"] input,div[data-testid="stTextInput"] input {
+  background:var(--surf) !important; color:var(--text) !important;
+  border-color:var(--border) !important; font-size:.9rem !important;
+  transition:border-color .25s ease, box-shadow .25s ease !important; border-radius:8px !important;
+}
+div[data-testid="stNumberInput"] input:focus,div[data-testid="stTextInput"] input:focus {
+  border-color:var(--a2) !important; box-shadow:0 0 0 3px rgba(52,100,200,.14) !important;
+}
+.stCaption,[data-testid="stCaptionContainer"],.stCaption p { color:var(--text3) !important; font-size:.76rem !important; }
+hr { border-color:var(--border) !important; margin:1.2rem 0 !important; }
+div[data-testid="stDataFrame"] { border-radius:12px; overflow:hidden; box-shadow:var(--sh); animation:fadeSlideUp .5s ease both; }
+div[data-baseweb="select"] { background:var(--surf) !important; }
+div[data-baseweb="select"] * { color:var(--text) !important; }
+div[data-testid="stSlider"] label { color:var(--text2) !important; font-weight:700 !important; font-size:.83rem !important; }
+table { border-collapse:collapse; width:100%; font-size:.84rem; }
+th { background:#eef2fc; color:var(--text); padding:.55rem .9rem; border:1px solid var(--border); font-weight:700; text-align:left; }
+td { padding:.5rem .9rem; border:1px solid var(--border); color:var(--text2); transition:background .15s ease; }
+tr:nth-child(even) td { background:#f8faff; }
+tr:hover td { background:#eef2fc !important; }
+
+/* stagger helpers */
+.d1{animation-delay:.05s!important} .d2{animation-delay:.10s!important}
+.d3{animation-delay:.15s!important} .d4{animation-delay:.20s!important}
+.d5{animation-delay:.25s!important} .d6{animation-delay:.30s!important}
+.d7{animation-delay:.35s!important} .d8{animation-delay:.40s!important}
 </style>
 """, unsafe_allow_html=True)
-
-
 # ══════════════════════════════════════════════════════════
 # SESSION STATE
 # ══════════════════════════════════════════════════════════
-DEFAULTS = {"page":"home","step":1,"data":{},"result":None,"_cid":0}
-for k,v in DEFAULTS.items():
-    if k not in st.session_state: st.session_state[k]=v
-
-
-# ══════════════════════════════════════════════════════════
-# KONSTANTA & LOOKUP
-# ══════════════════════════════════════════════════════════
-SUBTES = ["PU","PPU","PBM","PK","LBI","LBE","PM"]
-SUBTES_FULL = {"PU":"Penalaran Umum","PPU":"Pem. & Pengetahuan Umum",
-    "PBM":"Pemahaman Bacaan & Menulis","PK":"Pengetahuan Kuantitatif",
-    "LBI":"Literasi Bahasa Indonesia","LBE":"Literasi Bahasa Inggris","PM":"Penalaran Matematika"}
-SUBTES_CLR = {"PU":"#c8890a","PPU":"#3b6cb7","PBM":"#7048c8","PK":"#c0392b",
-    "LBI":"#1a8a4a","LBE":"#0d8a80","PM":"#d4620a"}
-
-# ── DAFTAR PTN & JURUSAN (30 PTN, 60 Prodi — Excel 2024)
-DAFTAR_PTN = ['Universitas Indonesia', 'Universitas Gadjah Mada', 'Universitas Airlangga', 'Institut Teknologi Bandung', 'Universitas Padjadjaran', 'Institut Pertanian Bogor', 'Institut Teknologi Sepuluh Nopember', 'Universitas Diponegoro', 'Universitas Brawijaya', 'Universitas Sebelas Maret', 'Universitas Hasanuddin', 'Universitas Pendidikan Indonesia', 'Universitas Sumatera Utara', 'Universitas Negeri Yogyakarta', 'Universitas Negeri Malang', 'Universitas Lampung', 'Universitas Andalas', 'Universitas Negeri Semarang', 'Universitas Syiah Kuala', 'Universitas Mulawarman', 'Universitas Sriwijaya', 'Universitas Udayana', 'Universitas Sam Ratulangi', 'Universitas Riau', 'Universitas Jember', 'Telkom University', 'Universitas Islam Indonesia', 'Universitas Muhammadiyah Yogyakarta', 'Bina Nusantara University', 'Universitas Muhammadiyah Malang']
-
-DAFTAR_JURUSAN_S1 = ['Administrasi Negara', 'Agribisnis', 'Agroteknologi', 'Akuntansi', 'Antropologi Sosial', 'Arsitektur', 'Biologi', 'Bioteknologi', 'Bisnis Internasional', 'Ekonomi Pembangunan', 'Farmasi', 'Filsafat', 'Fisika', 'Hubungan Internasional', 'Hukum', 'Ilmu Administrasi Bisnis', 'Ilmu Gizi', 'Ilmu Kelautan', 'Ilmu Kesejahteraan Sosial', 'Ilmu Komputer', 'Ilmu Komunikasi', 'Ilmu Pemerintahan', 'Ilmu Politik', 'Ilmu Sejarah', 'Ilmu Tanah', 'Kedokteran Gigi', 'Kehutanan', 'Keperawatan', 'Keuangan dan Perbankan', 'Kimia', 'Kriminologi', 'Manajemen', 'Matematika', 'Pariwisata', 'Pendidikan Bahasa Inggris', 'Pendidikan Dokter (Kedokteran)', 'Pendidikan Ekonomi', 'Pendidikan Pancasila dan Kewarganegaraan', 'Pendidikan Sejarah', 'Pendidikan Sosiologi', 'Perencanaan Wilayah dan Kota', 'Perpustakaan dan Ilmu Informasi', 'Peternakan', 'Psikologi', 'Sastra Arab', 'Sastra Indonesia', 'Sastra Inggris', 'Sastra Jawa', 'Sosiologi', 'Statistika', 'Teknik Elektro', 'Teknik Geologi', 'Teknik Industri', 'Teknik Informatika', 'Teknik Kimia', 'Teknik Lingkungan', 'Teknik Mesin', 'Teknik Perminyakan', 'Teknik Sipil', 'Teknologi Pangan']
-DAFTAR_JURUSAN = DAFTAR_JURUSAN_S1
-
-# ── BOBOT PER JURUSAN
-BOBOT_MAP = {
-    "Administrasi Negara":{"PU":.22,"PPU":.15,"PBM":.18,"PK":.08,"LBI":.20,"LBE":.10,"PM":.07},
-    "Agribisnis":{"PU":.18,"PPU":.12,"PBM":.12,"PK":.15,"LBI":.12,"LBE":.08,"PM":.23},
-    "Agroteknologi":{"PU":.18,"PPU":.12,"PBM":.08,"PK":.18,"LBI":.10,"LBE":.07,"PM":.27},
-    "Akuntansi":{"PU":.18,"PPU":.15,"PBM":.10,"PK":.22,"LBI":.10,"LBE":.10,"PM":.15},
-    "Antropologi Sosial":{"PU":.20,"PPU":.17,"PBM":.22,"PK":.06,"LBI":.20,"LBE":.10,"PM":.05},
-    "Arsitektur":{"PU":.20,"PPU":.10,"PBM":.12,"PK":.18,"LBI":.10,"LBE":.08,"PM":.22},
-    "Biologi":{"PU":.20,"PPU":.15,"PBM":.10,"PK":.15,"LBI":.10,"LBE":.08,"PM":.22},
-    "Bioteknologi":{"PU":.20,"PPU":.13,"PBM":.08,"PK":.18,"LBI":.08,"LBE":.08,"PM":.25},
-    "Bisnis Internasional":{"PU":.20,"PPU":.15,"PBM":.15,"PK":.12,"LBI":.15,"LBE":.18,"PM":.05},
-    "Ekonomi Pembangunan":{"PU":.20,"PPU":.15,"PBM":.10,"PK":.20,"LBI":.10,"LBE":.10,"PM":.15},
-    "Farmasi":{"PU":.18,"PPU":.12,"PBM":.08,"PK":.18,"LBI":.08,"LBE":.08,"PM":.28},
-    "Filsafat":{"PU":.22,"PPU":.18,"PBM":.22,"PK":.05,"LBI":.20,"LBE":.10,"PM":.03},
-    "Fisika":{"PU":.18,"PPU":.07,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.05,"PM":.40},
-    "Hubungan Internasional":{"PU":.20,"PPU":.15,"PBM":.15,"PK":.08,"LBI":.17,"LBE":.20,"PM":.05},
-    "Hukum":{"PU":.22,"PPU":.18,"PBM":.20,"PK":.08,"LBI":.18,"LBE":.10,"PM":.04},
-    "Ilmu Administrasi Bisnis":{"PU":.20,"PPU":.15,"PBM":.18,"PK":.12,"LBI":.18,"LBE":.10,"PM":.07},
-    "Ilmu Gizi":{"PU":.18,"PPU":.12,"PBM":.10,"PK":.15,"LBI":.12,"LBE":.08,"PM":.25},
-    "Ilmu Kelautan":{"PU":.18,"PPU":.12,"PBM":.08,"PK":.18,"LBI":.10,"LBE":.07,"PM":.27},
-    "Ilmu Kesejahteraan Sosial":{"PU":.20,"PPU":.15,"PBM":.20,"PK":.08,"LBI":.22,"LBE":.10,"PM":.05},
-    "Ilmu Komputer":{"PU":.20,"PPU":.05,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.10,"PM":.35},
-    "Ilmu Komunikasi":{"PU":.20,"PPU":.15,"PBM":.22,"PK":.08,"LBI":.20,"LBE":.10,"PM":.05},
-    "Ilmu Pemerintahan":{"PU":.22,"PPU":.17,"PBM":.18,"PK":.08,"LBI":.18,"LBE":.10,"PM":.07},
-    "Ilmu Politik":{"PU":.22,"PPU":.17,"PBM":.18,"PK":.08,"LBI":.18,"LBE":.10,"PM":.07},
-    "Ilmu Sejarah":{"PU":.20,"PPU":.20,"PBM":.18,"PK":.05,"LBI":.22,"LBE":.10,"PM":.05},
-    "Ilmu Tanah":{"PU":.18,"PPU":.12,"PBM":.08,"PK":.18,"LBI":.10,"LBE":.07,"PM":.27},
-    "Kedokteran Gigi":{"PU":.20,"PPU":.15,"PBM":.10,"PK":.15,"LBI":.10,"LBE":.10,"PM":.20},
-    "Kehutanan":{"PU":.18,"PPU":.12,"PBM":.08,"PK":.18,"LBI":.10,"LBE":.07,"PM":.27},
-    "Keperawatan":{"PU":.18,"PPU":.12,"PBM":.12,"PK":.12,"LBI":.15,"LBE":.08,"PM":.23},
-    "Keuangan dan Perbankan":{"PU":.18,"PPU":.13,"PBM":.10,"PK":.25,"LBI":.10,"LBE":.08,"PM":.16},
-    "Kimia":{"PU":.18,"PPU":.10,"PBM":.07,"PK":.18,"LBI":.07,"LBE":.05,"PM":.35},
-    "Kriminologi":{"PU":.22,"PPU":.17,"PBM":.20,"PK":.07,"LBI":.18,"LBE":.10,"PM":.06},
-    "Manajemen":{"PU":.20,"PPU":.15,"PBM":.12,"PK":.18,"LBI":.12,"LBE":.10,"PM":.13},
-    "Matematika":{"PU":.15,"PPU":.05,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.05,"PM":.45},
-    "Pariwisata":{"PU":.18,"PPU":.13,"PBM":.18,"PK":.08,"LBI":.18,"LBE":.20,"PM":.05},
-    "Pendidikan Bahasa Inggris":{"PU":.12,"PPU":.12,"PBM":.18,"PK":.05,"LBI":.12,"LBE":.33,"PM":.08},
-    "Pendidikan Dokter (Kedokteran)":{"PU":.20,"PPU":.15,"PBM":.10,"PK":.15,"LBI":.10,"LBE":.10,"PM":.20},
-    "Pendidikan Ekonomi":{"PU":.20,"PPU":.15,"PBM":.13,"PK":.18,"LBI":.13,"LBE":.10,"PM":.11},
-    "Pendidikan Pancasila dan Kewarganegaraan":{"PU":.20,"PPU":.17,"PBM":.18,"PK":.07,"LBI":.20,"LBE":.10,"PM":.08},
-    "Pendidikan Sejarah":{"PU":.18,"PPU":.18,"PBM":.20,"PK":.06,"LBI":.22,"LBE":.10,"PM":.06},
-    "Pendidikan Sosiologi":{"PU":.20,"PPU":.16,"PBM":.20,"PK":.07,"LBI":.20,"LBE":.10,"PM":.07},
-    "Perencanaan Wilayah dan Kota":{"PU":.20,"PPU":.10,"PBM":.12,"PK":.18,"LBI":.10,"LBE":.08,"PM":.22},
-    "Perpustakaan dan Ilmu Informasi":{"PU":.18,"PPU":.15,"PBM":.22,"PK":.08,"LBI":.22,"LBE":.10,"PM":.05},
-    "Peternakan":{"PU":.18,"PPU":.12,"PBM":.08,"PK":.18,"LBI":.10,"LBE":.07,"PM":.27},
-    "Psikologi":{"PU":.22,"PPU":.15,"PBM":.18,"PK":.10,"LBI":.18,"LBE":.10,"PM":.07},
-    "Sastra Arab":{"PU":.14,"PPU":.15,"PBM":.22,"PK":.05,"LBI":.22,"LBE":.18,"PM":.04},
-    "Sastra Indonesia":{"PU":.12,"PPU":.12,"PBM":.25,"PK":.05,"LBI":.35,"LBE":.08,"PM":.03},
-    "Sastra Inggris":{"PU":.12,"PPU":.12,"PBM":.20,"PK":.05,"LBI":.15,"LBE":.31,"PM":.05},
-    "Sastra Jawa":{"PU":.12,"PPU":.14,"PBM":.24,"PK":.05,"LBI":.33,"LBE":.08,"PM":.04},
-    "Sosiologi":{"PU":.22,"PPU":.17,"PBM":.18,"PK":.08,"LBI":.18,"LBE":.10,"PM":.07},
-    "Statistika":{"PU":.15,"PPU":.07,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.05,"PM":.43},
-    "Teknik Elektro":{"PU":.20,"PPU":.05,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.10,"PM":.35},
-    "Teknik Geologi":{"PU":.18,"PPU":.08,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.07,"PM":.37},
-    "Teknik Industri":{"PU":.20,"PPU":.05,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.10,"PM":.35},
-    "Teknik Informatika":{"PU":.20,"PPU":.05,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.10,"PM":.35},
-    "Teknik Kimia":{"PU":.18,"PPU":.08,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.07,"PM":.37},
-    "Teknik Lingkungan":{"PU":.18,"PPU":.08,"PBM":.07,"PK":.18,"LBI":.07,"LBE":.07,"PM":.35},
-    "Teknik Mesin":{"PU":.20,"PPU":.05,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.10,"PM":.35},
-    "Teknik Perminyakan":{"PU":.18,"PPU":.07,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.07,"PM":.38},
-    "Teknik Sipil":{"PU":.20,"PPU":.05,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.10,"PM":.35},
-    "Teknologi Pangan":{"PU":.18,"PPU":.12,"PBM":.08,"PK":.18,"LBI":.10,"LBE":.07,"PM":.27},
+DEFAULTS = {
+    'page': 'home', 'step': 1,
+    'data': {}, 'result': None,
+    '_cid': 0,
 }
-DEFAULT_BOBOT = {"PU":.15,"PPU":.14,"PBM":.14,"PK":.15,"LBI":.14,"LBE":.13,"PM":.15}
-def get_bobot(j): return BOBOT_MAP.get(j, DEFAULT_BOBOT)
+for k, v in DEFAULTS.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
+def ckey(prefix="c"):
+    st.session_state._cid += 1
+    return f"{prefix}_{st.session_state._cid}"
+
+
+# ══════════════════════════════════════════════════════════
+# KONSTANTA
+# ══════════════════════════════════════════════════════════
+SKOR_MIN_TPS = 200
+SKOR_MAX_TPS = 1000
+
+SUBTES = ["PU", "PPU", "PBM", "PK", "LBI", "LBE", "PM"]
+SUBTES_FULL = {
+    "PU":  "Penalaran Umum",
+    "PPU": "Pem. & Pengetahuan Umum",
+    "PBM": "Pemahaman Bacaan & Menulis",
+    "PK":  "Pengetahuan Kuantitatif",
+    "LBI": "Literasi Bahasa Indonesia",
+    "LBE": "Literasi Bahasa Inggris",
+    "PM":  "Penalaran Matematika",
+}
+SUBTES_CLR = {
+    "PU": "#c8890a", "PPU": "#3b6cb7", "PBM": "#7048c8",
+    "PK": "#c0392b", "LBI": "#1a8a4a", "LBE": "#0d8a80", "PM": "#d4620a",
+}
+
+# Jenjang pilihan
+DAFTAR_JENJANG = ["S1 (Sarjana)", "D3 (Diploma Tiga)"]
+
+# Jurusan S1
+DAFTAR_JURUSAN_S1 = [
+    "Kedokteran","Kedokteran Gigi",
+    "Teknik Sipil","Teknik Mesin","Teknik Elektro","Teknik Industri","Teknik Kimia","Teknik Informatika",
+    "Matematika","Fisika","Kimia","Biologi","Statistika","Aktuaria",
+    "Farmasi","Gizi","Keperawatan","Kesehatan Masyarakat",
+    "Ilmu Hukum","Ekonomi","Manajemen","Akuntansi","Bisnis",
+    "Psikologi","Ilmu Komunikasi","Hubungan Internasional","Administrasi Publik",
+    "Sastra Inggris","Pendidikan Bahasa Indonesia","Pendidikan Bahasa Inggris",
+    "Sosiologi","Ilmu Politik","Sejarah","Geografi"
+]
+
+# Jurusan D3 — program vokasi yang tersedia di SNBT/UTBK
+DAFTAR_JURUSAN_D3 = [
+    # Teknik & Rekayasa
+    "D3 Teknik Sipil","D3 Teknik Mesin","D3 Teknik Elektro","D3 Teknik Kimia",
+    "D3 Teknik Komputer","D3 Teknologi Informasi","D3 Teknik Mekatronika",
+    # Bisnis & Manajemen
+    "D3 Manajemen","D3 Akuntansi","D3 Administrasi Bisnis","D3 Perbankan & Keuangan",
+    "D3 Manajemen Pemasaran","D3 Perpajakan",
+    # Kesehatan
+    "D3 Keperawatan","D3 Kebidanan","D3 Farmasi","D3 Gizi","D3 Analis Kesehatan",
+    "D3 Rekam Medis","D3 Fisioterapi","D3 Radiologi",
+    # Seni & Komunikasi
+    "D3 Komunikasi","D3 Hubungan Masyarakat","D3 Desain Grafis","D3 Animasi",
+    # Pariwisata & Sosial
+    "D3 Pariwisata","D3 Perhotelan","D3 Bahasa Inggris",
+    # Pertanian & Lingkungan
+    "D3 Agribisnis","D3 Teknologi Pangan",
+]
+
+# Gabungan untuk tampilan (dipisahkan per jenjang di UI)
+DAFTAR_JURUSAN = DAFTAR_JURUSAN_S1  # default S1
+
+def get_daftar_jurusan(jenjang):
+    if "D3" in jenjang:
+        return DAFTAR_JURUSAN_D3
+    return DAFTAR_JURUSAN_S1
+
+# Bobot per jurusan (total = 1.0)
+BOBOT_MAP = {
+    "Kedokteran":             {"PU":.20,"PPU":.15,"PBM":.10,"PK":.15,"LBI":.10,"LBE":.10,"PM":.20},
+    "Kedokteran Gigi":        {"PU":.20,"PPU":.15,"PBM":.10,"PK":.15,"LBI":.10,"LBE":.10,"PM":.20},
+    "Teknik Informatika":     {"PU":.20,"PPU":.05,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.10,"PM":.35},
+    "Teknik Sipil":           {"PU":.20,"PPU":.05,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.10,"PM":.35},
+    "Teknik Mesin":           {"PU":.20,"PPU":.05,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.10,"PM":.35},
+    "Teknik Elektro":         {"PU":.20,"PPU":.05,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.10,"PM":.35},
+    "Teknik Industri":        {"PU":.20,"PPU":.05,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.10,"PM":.35},
+    "Teknik Kimia":           {"PU":.18,"PPU":.08,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.07,"PM":.37},
+    "Matematika":             {"PU":.15,"PPU":.05,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.05,"PM":.45},
+    "Fisika":                 {"PU":.18,"PPU":.07,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.05,"PM":.40},
+    "Kimia":                  {"PU":.18,"PPU":.10,"PBM":.07,"PK":.18,"LBI":.07,"LBE":.05,"PM":.35},
+    "Biologi":                {"PU":.20,"PPU":.15,"PBM":.10,"PK":.15,"LBI":.10,"LBE":.08,"PM":.22},
+    "Statistika":             {"PU":.15,"PPU":.07,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.05,"PM":.43},
+    "Aktuaria":               {"PU":.15,"PPU":.07,"PBM":.05,"PK":.20,"LBI":.05,"LBE":.05,"PM":.43},
+    "Farmasi":                {"PU":.18,"PPU":.12,"PBM":.08,"PK":.18,"LBI":.08,"LBE":.08,"PM":.28},
+    "Gizi":                   {"PU":.18,"PPU":.12,"PBM":.10,"PK":.15,"LBI":.12,"LBE":.08,"PM":.25},
+    "Keperawatan":            {"PU":.18,"PPU":.12,"PBM":.12,"PK":.12,"LBI":.15,"LBE":.08,"PM":.23},
+    "Kesehatan Masyarakat":   {"PU":.20,"PPU":.12,"PBM":.12,"PK":.12,"LBI":.15,"LBE":.08,"PM":.21},
+    "Ilmu Hukum":             {"PU":.22,"PPU":.18,"PBM":.20,"PK":.08,"LBI":.18,"LBE":.10,"PM":.04},
+    "Ekonomi":                {"PU":.20,"PPU":.15,"PBM":.10,"PK":.20,"LBI":.10,"LBE":.10,"PM":.15},
+    "Manajemen":              {"PU":.20,"PPU":.15,"PBM":.12,"PK":.18,"LBI":.12,"LBE":.10,"PM":.13},
+    "Akuntansi":              {"PU":.18,"PPU":.15,"PBM":.10,"PK":.22,"LBI":.10,"LBE":.10,"PM":.15},
+    "Bisnis":                 {"PU":.20,"PPU":.15,"PBM":.12,"PK":.18,"LBI":.12,"LBE":.10,"PM":.13},
+    "Psikologi":              {"PU":.22,"PPU":.15,"PBM":.18,"PK":.10,"LBI":.18,"LBE":.10,"PM":.07},
+    "Ilmu Komunikasi":        {"PU":.20,"PPU":.15,"PBM":.22,"PK":.08,"LBI":.20,"LBE":.10,"PM":.05},
+    "Hubungan Internasional": {"PU":.20,"PPU":.15,"PBM":.15,"PK":.08,"LBI":.17,"LBE":.20,"PM":.05},
+    "Administrasi Publik":    {"PU":.22,"PPU":.15,"PBM":.18,"PK":.08,"LBI":.20,"LBE":.10,"PM":.07},
+    "Sastra Inggris":         {"PU":.12,"PPU":.12,"PBM":.20,"PK":.05,"LBI":.15,"LBE":.31,"PM":.05},
+    "Pendidikan Bahasa Indonesia": {"PU":.12,"PPU":.12,"PBM":.22,"PK":.05,"LBI":.32,"LBE":.12,"PM":.05},
+    "Pendidikan Bahasa Inggris":   {"PU":.12,"PPU":.12,"PBM":.18,"PK":.05,"LBI":.12,"LBE":.33,"PM":.08},
+    "Sosiologi":              {"PU":.22,"PPU":.17,"PBM":.18,"PK":.08,"LBI":.18,"LBE":.10,"PM":.07},
+    "Ilmu Politik":           {"PU":.22,"PPU":.17,"PBM":.18,"PK":.08,"LBI":.18,"LBE":.10,"PM":.07},
+    "Sejarah":                {"PU":.20,"PPU":.20,"PBM":.18,"PK":.05,"LBI":.22,"LBE":.10,"PM":.05},
+    "Geografi":               {"PU":.20,"PPU":.15,"PBM":.15,"PK":.12,"LBI":.15,"LBE":.08,"PM":.15},
+}
+DEFAULT_BOBOT = {"PU":.15,"PPU":.15,"PBM":.15,"PK":.15,"LBI":.15,"LBE":.15,"PM":.10}
+
+# ── Bobot D3 — vokasi lebih menekankan kemampuan teknis & literasi praktis ──
+BOBOT_MAP_D3 = {
+    # Teknik & Rekayasa
+    "D3 Teknik Sipil":         {"PU":.18,"PPU":.05,"PBM":.05,"PK":.22,"LBI":.05,"LBE":.07,"PM":.38},
+    "D3 Teknik Mesin":         {"PU":.18,"PPU":.05,"PBM":.05,"PK":.22,"LBI":.05,"LBE":.07,"PM":.38},
+    "D3 Teknik Elektro":       {"PU":.18,"PPU":.05,"PBM":.05,"PK":.22,"LBI":.05,"LBE":.07,"PM":.38},
+    "D3 Teknik Kimia":         {"PU":.17,"PPU":.08,"PBM":.05,"PK":.22,"LBI":.05,"LBE":.05,"PM":.38},
+    "D3 Teknik Komputer":      {"PU":.18,"PPU":.05,"PBM":.05,"PK":.22,"LBI":.05,"LBE":.08,"PM":.37},
+    "D3 Teknologi Informasi":  {"PU":.18,"PPU":.05,"PBM":.05,"PK":.22,"LBI":.05,"LBE":.08,"PM":.37},
+    "D3 Teknik Mekatronika":   {"PU":.18,"PPU":.05,"PBM":.05,"PK":.22,"LBI":.05,"LBE":.07,"PM":.38},
+    # Bisnis & Manajemen
+    "D3 Manajemen":            {"PU":.20,"PPU":.15,"PBM":.15,"PK":.18,"LBI":.15,"LBE":.10,"PM":.07},
+    "D3 Akuntansi":            {"PU":.18,"PPU":.13,"PBM":.12,"PK":.25,"LBI":.12,"LBE":.08,"PM":.12},
+    "D3 Administrasi Bisnis":  {"PU":.20,"PPU":.15,"PBM":.18,"PK":.12,"LBI":.18,"LBE":.10,"PM":.07},
+    "D3 Perbankan & Keuangan": {"PU":.18,"PPU":.13,"PBM":.12,"PK":.25,"LBI":.12,"LBE":.08,"PM":.12},
+    "D3 Manajemen Pemasaran":  {"PU":.20,"PPU":.15,"PBM":.17,"PK":.12,"LBI":.18,"LBE":.12,"PM":.06},
+    "D3 Perpajakan":           {"PU":.18,"PPU":.12,"PBM":.12,"PK":.25,"LBI":.13,"LBE":.08,"PM":.12},
+    # Kesehatan
+    "D3 Keperawatan":          {"PU":.18,"PPU":.13,"PBM":.13,"PK":.12,"LBI":.17,"LBE":.08,"PM":.19},
+    "D3 Kebidanan":            {"PU":.18,"PPU":.14,"PBM":.13,"PK":.12,"LBI":.17,"LBE":.08,"PM":.18},
+    "D3 Farmasi":              {"PU":.17,"PPU":.13,"PBM":.08,"PK":.18,"LBI":.10,"LBE":.08,"PM":.26},
+    "D3 Gizi":                 {"PU":.18,"PPU":.13,"PBM":.10,"PK":.15,"LBI":.13,"LBE":.08,"PM":.23},
+    "D3 Analis Kesehatan":     {"PU":.18,"PPU":.13,"PBM":.08,"PK":.18,"LBI":.10,"LBE":.07,"PM":.26},
+    "D3 Rekam Medis":          {"PU":.18,"PPU":.12,"PBM":.14,"PK":.15,"LBI":.16,"LBE":.08,"PM":.17},
+    "D3 Fisioterapi":          {"PU":.19,"PPU":.13,"PBM":.12,"PK":.13,"LBI":.15,"LBE":.08,"PM":.20},
+    "D3 Radiologi":            {"PU":.18,"PPU":.12,"PBM":.08,"PK":.20,"LBI":.10,"LBE":.07,"PM":.25},
+    # Seni & Komunikasi
+    "D3 Komunikasi":           {"PU":.20,"PPU":.15,"PBM":.22,"PK":.08,"LBI":.20,"LBE":.10,"PM":.05},
+    "D3 Hubungan Masyarakat":  {"PU":.20,"PPU":.15,"PBM":.22,"PK":.07,"LBI":.22,"LBE":.10,"PM":.04},
+    "D3 Desain Grafis":        {"PU":.18,"PPU":.10,"PBM":.18,"PK":.12,"LBI":.18,"LBE":.12,"PM":.12},
+    "D3 Animasi":              {"PU":.18,"PPU":.10,"PBM":.15,"PK":.15,"LBI":.17,"LBE":.12,"PM":.13},
+    # Pariwisata & Sosial
+    "D3 Pariwisata":           {"PU":.18,"PPU":.13,"PBM":.18,"PK":.08,"LBI":.18,"LBE":.18,"PM":.07},
+    "D3 Perhotelan":           {"PU":.18,"PPU":.12,"PBM":.17,"PK":.08,"LBI":.18,"LBE":.20,"PM":.07},
+    "D3 Bahasa Inggris":       {"PU":.13,"PPU":.12,"PBM":.18,"PK":.05,"LBI":.15,"LBE":.33,"PM":.04},
+    # Pertanian & Lingkungan
+    "D3 Agribisnis":           {"PU":.20,"PPU":.15,"PBM":.12,"PK":.15,"LBI":.15,"LBE":.08,"PM":.15},
+    "D3 Teknologi Pangan":     {"PU":.18,"PPU":.13,"PBM":.08,"PK":.18,"LBI":.10,"LBE":.07,"PM":.26},
+}
+
+DEFAULT_BOBOT_D3 = {"PU":.18,"PPU":.12,"PBM":.13,"PK":.15,"LBI":.15,"LBE":.10,"PM":.17}
+
+def get_bobot(j):
+    if j in BOBOT_MAP_D3:
+        return BOBOT_MAP_D3[j]
+    return BOBOT_MAP.get(j, DEFAULT_BOBOT)
+
+# ══════════════════════════════════════════════════════════
+# PTN DATA — Skor aman per jurusan (berbasis UTBK 2023/2024)
+# Format: {jurusan: {"mn": min_aman, "mx": maks_aman}}
+# Diisi berdasarkan data passing grade UTBK 2023-2024 yang dipublikasikan
+# ══════════════════════════════════════════════════════════
+
+# Skor referensi per PTN per jurusan (UTBK 2023/2024, skala 1000)
+# Sumber: LTMPT/SNPMB 2023-2024, berbagai referensi resmi dan situs akademik
+PTN_JURUSAN_DATA = {
+    "Universitas Indonesia (UI)": {
+        "Kedokteran":             {"mn": 845, "mx": 910},
+        "Kedokteran Gigi":        {"mn": 810, "mx": 875},
+        "Teknik Informatika":     {"mn": 800, "mx": 870},
+        "Teknik Sipil":           {"mn": 780, "mx": 845},
+        "Teknik Mesin":           {"mn": 775, "mx": 840},
+        "Teknik Elektro":         {"mn": 790, "mx": 855},
+        "Teknik Industri":        {"mn": 785, "mx": 850},
+        "Teknik Kimia":           {"mn": 775, "mx": 840},
+        "Matematika":             {"mn": 765, "mx": 830},
+        "Fisika":                 {"mn": 755, "mx": 820},
+        "Kimia":                  {"mn": 755, "mx": 820},
+        "Biologi":                {"mn": 745, "mx": 810},
+        "Statistika":             {"mn": 770, "mx": 835},
+        "Aktuaria":               {"mn": 780, "mx": 845},
+        "Farmasi":                {"mn": 790, "mx": 855},
+        "Gizi":                   {"mn": 760, "mx": 825},
+        "Keperawatan":            {"mn": 730, "mx": 795},
+        "Kesehatan Masyarakat":   {"mn": 745, "mx": 810},
+        "Ilmu Hukum":             {"mn": 765, "mx": 830},
+        "Ekonomi":                {"mn": 775, "mx": 840},
+        "Manajemen":              {"mn": 770, "mx": 835},
+        "Akuntansi":              {"mn": 775, "mx": 840},
+        "Bisnis":                 {"mn": 770, "mx": 835},
+        "Psikologi":              {"mn": 770, "mx": 835},
+        "Ilmu Komunikasi":        {"mn": 760, "mx": 825},
+        "Hubungan Internasional": {"mn": 775, "mx": 840},
+        "Administrasi Publik":    {"mn": 750, "mx": 815},
+        "Sastra Inggris":         {"mn": 745, "mx": 810},
+        "Pendidikan Bahasa Indonesia": {"mn": 720, "mx": 785},
+        "Pendidikan Bahasa Inggris":   {"mn": 730, "mx": 795},
+        "Sosiologi":              {"mn": 745, "mx": 810},
+        "Ilmu Politik":           {"mn": 755, "mx": 820},
+        "Sejarah":                {"mn": 720, "mx": 785},
+        "Geografi":               {"mn": 720, "mx": 785},
+        "_default":               {"mn": 760, "mx": 830},
+        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
+    },
+    "Universitas Gadjah Mada (UGM)": {
+        "Kedokteran":             {"mn": 840, "mx": 905},
+        "Kedokteran Gigi":        {"mn": 805, "mx": 870},
+        "Teknik Informatika":     {"mn": 795, "mx": 865},
+        "Teknik Sipil":           {"mn": 770, "mx": 840},
+        "Teknik Mesin":           {"mn": 765, "mx": 835},
+        "Teknik Elektro":         {"mn": 780, "mx": 850},
+        "Teknik Industri":        {"mn": 775, "mx": 845},
+        "Teknik Kimia":           {"mn": 765, "mx": 835},
+        "Matematika":             {"mn": 755, "mx": 825},
+        "Fisika":                 {"mn": 745, "mx": 815},
+        "Kimia":                  {"mn": 745, "mx": 815},
+        "Biologi":                {"mn": 740, "mx": 810},
+        "Statistika":             {"mn": 765, "mx": 835},
+        "Aktuaria":               {"mn": 775, "mx": 845},
+        "Farmasi":                {"mn": 780, "mx": 850},
+        "Gizi":                   {"mn": 750, "mx": 820},
+        "Keperawatan":            {"mn": 720, "mx": 790},
+        "Kesehatan Masyarakat":   {"mn": 735, "mx": 805},
+        "Ilmu Hukum":             {"mn": 755, "mx": 825},
+        "Ekonomi":                {"mn": 765, "mx": 835},
+        "Manajemen":              {"mn": 760, "mx": 830},
+        "Akuntansi":              {"mn": 765, "mx": 835},
+        "Bisnis":                 {"mn": 760, "mx": 830},
+        "Psikologi":              {"mn": 760, "mx": 830},
+        "Ilmu Komunikasi":        {"mn": 750, "mx": 820},
+        "Hubungan Internasional": {"mn": 765, "mx": 835},
+        "Administrasi Publik":    {"mn": 740, "mx": 810},
+        "Sastra Inggris":         {"mn": 735, "mx": 805},
+        "Pendidikan Bahasa Indonesia": {"mn": 715, "mx": 785},
+        "Pendidikan Bahasa Inggris":   {"mn": 725, "mx": 795},
+        "Sosiologi":              {"mn": 740, "mx": 810},
+        "Ilmu Politik":           {"mn": 750, "mx": 820},
+        "Sejarah":                {"mn": 715, "mx": 785},
+        "Geografi":               {"mn": 715, "mx": 785},
+        "_default":               {"mn": 755, "mx": 825},
+        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
+    },
+    "Institut Teknologi Bandung (ITB)": {
+        "Teknik Informatika":     {"mn": 855, "mx": 930},
+        "Teknik Sipil":           {"mn": 820, "mx": 895},
+        "Teknik Mesin":           {"mn": 815, "mx": 890},
+        "Teknik Elektro":         {"mn": 835, "mx": 910},
+        "Teknik Industri":        {"mn": 825, "mx": 900},
+        "Teknik Kimia":           {"mn": 815, "mx": 890},
+        "Matematika":             {"mn": 800, "mx": 875},
+        "Fisika":                 {"mn": 795, "mx": 870},
+        "Kimia":                  {"mn": 790, "mx": 865},
+        "Statistika":             {"mn": 810, "mx": 885},
+        "Aktuaria":               {"mn": 815, "mx": 890},
+        "Biologi":                {"mn": 780, "mx": 855},
+        "Gizi":                   {"mn": 775, "mx": 850},
+        "Farmasi":                {"mn": 785, "mx": 860},
+        "Kedokteran":             {"mn": 870, "mx": 945},
+        "Ilmu Komunikasi":        {"mn": 770, "mx": 845},
+        "Manajemen":              {"mn": 790, "mx": 865},
+        "_default":               {"mn": 810, "mx": 885},
+        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
+    },
+    "Universitas Padjadjaran (Unpad)": {
+        "Kedokteran":             {"mn": 810, "mx": 880},
+        "Kedokteran Gigi":        {"mn": 775, "mx": 845},
+        "Teknik Informatika":     {"mn": 760, "mx": 830},
+        "Teknik Sipil":           {"mn": 740, "mx": 810},
+        "Teknik Mesin":           {"mn": 735, "mx": 805},
+        "Farmasi":                {"mn": 760, "mx": 830},
+        "Matematika":             {"mn": 730, "mx": 800},
+        "Biologi":                {"mn": 715, "mx": 785},
+        "Kimia":                  {"mn": 720, "mx": 790},
+        "Fisika":                 {"mn": 715, "mx": 785},
+        "Statistika":             {"mn": 735, "mx": 805},
+        "Akuntansi":              {"mn": 740, "mx": 810},
+        "Manajemen":              {"mn": 738, "mx": 808},
+        "Ilmu Hukum":             {"mn": 730, "mx": 800},
+        "Psikologi":              {"mn": 735, "mx": 805},
+        "Ilmu Komunikasi":        {"mn": 728, "mx": 798},
+        "Hubungan Internasional": {"mn": 738, "mx": 808},
+        "Gizi":                   {"mn": 725, "mx": 795},
+        "Keperawatan":            {"mn": 700, "mx": 770},
+        "Kesehatan Masyarakat":   {"mn": 710, "mx": 780},
+        "_default":               {"mn": 730, "mx": 800},
+        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
+    },
+    "Institut Pertanian Bogor (IPB)": {
+        "Teknik Informatika":     {"mn": 750, "mx": 825},
+        "Statistika":             {"mn": 745, "mx": 820},
+        "Matematika":             {"mn": 730, "mx": 805},
+        "Biologi":                {"mn": 720, "mx": 795},
+        "Kimia":                  {"mn": 718, "mx": 793},
+        "Fisika":                 {"mn": 715, "mx": 790},
+        "Gizi":                   {"mn": 730, "mx": 805},
+        "Farmasi":                {"mn": 738, "mx": 813},
+        "Kesehatan Masyarakat":   {"mn": 710, "mx": 785},
+        "Manajemen":              {"mn": 725, "mx": 800},
+        "Akuntansi":              {"mn": 720, "mx": 795},
+        "Ekonomi":                {"mn": 728, "mx": 803},
+        "Teknik Sipil":           {"mn": 720, "mx": 795},
+        "_default":               {"mn": 720, "mx": 795},
+        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
+    },
+    "Universitas Diponegoro (Undip)": {
+        "Kedokteran":             {"mn": 790, "mx": 855},
+        "Kedokteran Gigi":        {"mn": 755, "mx": 820},
+        "Teknik Informatika":     {"mn": 740, "mx": 808},
+        "Teknik Sipil":           {"mn": 720, "mx": 788},
+        "Teknik Mesin":           {"mn": 715, "mx": 783},
+        "Teknik Elektro":         {"mn": 725, "mx": 793},
+        "Teknik Industri":        {"mn": 720, "mx": 788},
+        "Teknik Kimia":           {"mn": 715, "mx": 783},
+        "Matematika":             {"mn": 705, "mx": 773},
+        "Fisika":                 {"mn": 698, "mx": 766},
+        "Statistika":             {"mn": 715, "mx": 783},
+        "Farmasi":                {"mn": 730, "mx": 798},
+        "Ilmu Hukum":             {"mn": 705, "mx": 773},
+        "Manajemen":              {"mn": 710, "mx": 778},
+        "Akuntansi":              {"mn": 715, "mx": 783},
+        "Psikologi":              {"mn": 708, "mx": 776},
+        "Ilmu Komunikasi":        {"mn": 700, "mx": 768},
+        "Kesehatan Masyarakat":   {"mn": 698, "mx": 766},
+        "_default":               {"mn": 705, "mx": 775},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Universitas Airlangga (Unair)": {
+        "Kedokteran":             {"mn": 820, "mx": 885},
+        "Kedokteran Gigi":        {"mn": 780, "mx": 845},
+        "Farmasi":                {"mn": 760, "mx": 825},
+        "Keperawatan":            {"mn": 715, "mx": 780},
+        "Kesehatan Masyarakat":   {"mn": 720, "mx": 785},
+        "Teknik Informatika":     {"mn": 740, "mx": 805},
+        "Ilmu Hukum":             {"mn": 720, "mx": 785},
+        "Manajemen":              {"mn": 725, "mx": 790},
+        "Akuntansi":              {"mn": 725, "mx": 790},
+        "Ekonomi":                {"mn": 728, "mx": 793},
+        "Psikologi":              {"mn": 720, "mx": 785},
+        "Ilmu Komunikasi":        {"mn": 715, "mx": 780},
+        "Matematika":             {"mn": 705, "mx": 770},
+        "_default":               {"mn": 720, "mx": 790},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Universitas Brawijaya (UB)": {
+        "Kedokteran":             {"mn": 780, "mx": 845},
+        "Kedokteran Gigi":        {"mn": 745, "mx": 810},
+        "Teknik Informatika":     {"mn": 720, "mx": 785},
+        "Teknik Sipil":           {"mn": 700, "mx": 765},
+        "Farmasi":                {"mn": 730, "mx": 795},
+        "Ilmu Hukum":             {"mn": 700, "mx": 765},
+        "Manajemen":              {"mn": 705, "mx": 770},
+        "Akuntansi":              {"mn": 705, "mx": 770},
+        "Psikologi":              {"mn": 700, "mx": 765},
+        "Ilmu Komunikasi":        {"mn": 695, "mx": 760},
+        "Teknik Mesin":           {"mn": 695, "mx": 760},
+        "Teknik Elektro":         {"mn": 705, "mx": 770},
+        "Matematika":             {"mn": 688, "mx": 753},
+        "Biologi":                {"mn": 685, "mx": 750},
+        "Gizi":                   {"mn": 695, "mx": 760},
+        "Kesehatan Masyarakat":   {"mn": 690, "mx": 755},
+        "_default":               {"mn": 695, "mx": 765},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Institut Teknologi Sepuluh Nopember (ITS)": {
+        "Teknik Informatika":     {"mn": 800, "mx": 870},
+        "Teknik Elektro":         {"mn": 780, "mx": 850},
+        "Teknik Sipil":           {"mn": 755, "mx": 825},
+        "Teknik Mesin":           {"mn": 750, "mx": 820},
+        "Teknik Industri":        {"mn": 758, "mx": 828},
+        "Teknik Kimia":           {"mn": 745, "mx": 815},
+        "Matematika":             {"mn": 735, "mx": 805},
+        "Fisika":                 {"mn": 725, "mx": 795},
+        "Kimia":                  {"mn": 720, "mx": 790},
+        "Statistika":             {"mn": 740, "mx": 810},
+        "_default":               {"mn": 750, "mx": 820},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Universitas Sebelas Maret (UNS)": {
+        "Kedokteran":             {"mn": 755, "mx": 820},
+        "Kedokteran Gigi":        {"mn": 720, "mx": 785},
+        "Teknik Informatika":     {"mn": 700, "mx": 765},
+        "Teknik Sipil":           {"mn": 680, "mx": 745},
+        "Ilmu Hukum":             {"mn": 678, "mx": 743},
+        "Manajemen":              {"mn": 680, "mx": 745},
+        "Akuntansi":              {"mn": 682, "mx": 747},
+        "Psikologi":              {"mn": 678, "mx": 743},
+        "Farmasi":                {"mn": 698, "mx": 763},
+        "Biologi":                {"mn": 658, "mx": 723},
+        "Fisika":                 {"mn": 650, "mx": 715},
+        "Matematika":             {"mn": 660, "mx": 725},
+        "Gizi":                   {"mn": 665, "mx": 730},
+        "Sosiologi":              {"mn": 650, "mx": 715},
+        "Ilmu Komunikasi":        {"mn": 660, "mx": 725},
+        "_default":               {"mn": 665, "mx": 735},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Universitas Hasanuddin (Unhas)": {
+        "Kedokteran":             {"mn": 760, "mx": 825},
+        "Kedokteran Gigi":        {"mn": 725, "mx": 790},
+        "Teknik Informatika":     {"mn": 700, "mx": 765},
+        "Teknik Sipil":           {"mn": 678, "mx": 743},
+        "Teknik Mesin":           {"mn": 672, "mx": 737},
+        "Farmasi":                {"mn": 710, "mx": 775},
+        "Ilmu Hukum":             {"mn": 672, "mx": 737},
+        "Manajemen":              {"mn": 668, "mx": 733},
+        "Akuntansi":              {"mn": 670, "mx": 735},
+        "Psikologi":              {"mn": 665, "mx": 730},
+        "Matematika":             {"mn": 648, "mx": 713},
+        "Biologi":                {"mn": 642, "mx": 707},
+        "_default":               {"mn": 660, "mx": 730},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Universitas Negeri Yogyakarta (UNY)": {
+        "Pendidikan Bahasa Indonesia": {"mn": 630, "mx": 700},
+        "Pendidikan Bahasa Inggris":   {"mn": 640, "mx": 710},
+        "Psikologi":              {"mn": 638, "mx": 708},
+        "Ilmu Komunikasi":        {"mn": 625, "mx": 695},
+        "Matematika":             {"mn": 635, "mx": 705},
+        "Biologi":                {"mn": 618, "mx": 688},
+        "Fisika":                 {"mn": 612, "mx": 682},
+        "Ilmu Hukum":             {"mn": 620, "mx": 690},
+        "Manajemen":              {"mn": 625, "mx": 695},
+        "Akuntansi":              {"mn": 622, "mx": 692},
+        "Sosiologi":              {"mn": 615, "mx": 685},
+        "_default":               {"mn": 620, "mx": 695},
+        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
+    },
+    "Universitas Negeri Semarang (UNNES)": {
+        "Pendidikan Bahasa Indonesia": {"mn": 615, "mx": 685},
+        "Pendidikan Bahasa Inggris":   {"mn": 622, "mx": 692},
+        "Matematika":             {"mn": 618, "mx": 688},
+        "Biologi":                {"mn": 605, "mx": 675},
+        "Fisika":                 {"mn": 600, "mx": 670},
+        "Ilmu Hukum":             {"mn": 608, "mx": 678},
+        "Manajemen":              {"mn": 610, "mx": 680},
+        "Sosiologi":              {"mn": 600, "mx": 670},
+        "_default":               {"mn": 605, "mx": 678},
+        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
+    },
+    "Universitas Negeri Malang (UM)": {
+        "Pendidikan Bahasa Indonesia": {"mn": 612, "mx": 682},
+        "Pendidikan Bahasa Inggris":   {"mn": 620, "mx": 690},
+        "Matematika":             {"mn": 615, "mx": 685},
+        "Psikologi":              {"mn": 625, "mx": 695},
+        "Biologi":                {"mn": 603, "mx": 673},
+        "Ilmu Hukum":             {"mn": 605, "mx": 675},
+        "Akuntansi":              {"mn": 610, "mx": 680},
+        "Manajemen":              {"mn": 608, "mx": 678},
+        "Sosiologi":              {"mn": 598, "mx": 668},
+        "_default":               {"mn": 605, "mx": 678},
+        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
+    },
+    "Universitas Andalas (Unand)": {
+        "Kedokteran":             {"mn": 728, "mx": 798},
+        "Kedokteran Gigi":        {"mn": 695, "mx": 765},
+        "Teknik Informatika":     {"mn": 675, "mx": 745},
+        "Farmasi":                {"mn": 685, "mx": 755},
+        "Ilmu Hukum":             {"mn": 655, "mx": 725},
+        "Manajemen":              {"mn": 650, "mx": 720},
+        "Teknik Sipil":           {"mn": 650, "mx": 720},
+        "Biologi":                {"mn": 625, "mx": 695},
+        "Matematika":             {"mn": 628, "mx": 698},
+        "Psikologi":              {"mn": 648, "mx": 718},
+        "_default":               {"mn": 640, "mx": 715},
+        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
+    },
+    "Universitas Sumatera Utara (USU)": {
+        "Kedokteran":             {"mn": 720, "mx": 790},
+        "Kedokteran Gigi":        {"mn": 685, "mx": 755},
+        "Teknik Informatika":     {"mn": 660, "mx": 730},
+        "Farmasi":                {"mn": 668, "mx": 738},
+        "Ilmu Hukum":             {"mn": 640, "mx": 710},
+        "Manajemen":              {"mn": 638, "mx": 708},
+        "Teknik Sipil":           {"mn": 635, "mx": 705},
+        "Biologi":                {"mn": 612, "mx": 682},
+        "Matematika":             {"mn": 615, "mx": 685},
+        "Psikologi":              {"mn": 635, "mx": 705},
+        "Akuntansi":              {"mn": 640, "mx": 710},
+        "_default":               {"mn": 625, "mx": 698},
+        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
+    },
+    "Universitas Sriwijaya (Unsri)": {
+        "Kedokteran":             {"mn": 695, "mx": 765},
+        "Kedokteran Gigi":        {"mn": 658, "mx": 728},
+        "Teknik Informatika":     {"mn": 635, "mx": 705},
+        "Teknik Sipil":           {"mn": 612, "mx": 682},
+        "Farmasi":                {"mn": 638, "mx": 708},
+        "Ilmu Hukum":             {"mn": 608, "mx": 678},
+        "Manajemen":              {"mn": 605, "mx": 675},
+        "Akuntansi":              {"mn": 608, "mx": 678},
+        "Matematika":             {"mn": 595, "mx": 665},
+        "Biologi":                {"mn": 588, "mx": 658},
+        "_default":               {"mn": 600, "mx": 672},
+        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
+    },
+    "Universitas Lampung (Unila)": {
+        "Kedokteran":             {"mn": 682, "mx": 752},
+        "Teknik Informatika":     {"mn": 618, "mx": 688},
+        "Teknik Sipil":           {"mn": 598, "mx": 668},
+        "Ilmu Hukum":             {"mn": 595, "mx": 665},
+        "Manajemen":              {"mn": 592, "mx": 662},
+        "Akuntansi":              {"mn": 592, "mx": 662},
+        "Matematika":             {"mn": 582, "mx": 652},
+        "Biologi":                {"mn": 575, "mx": 645},
+        "Psikologi":              {"mn": 590, "mx": 660},
+        "_default":               {"mn": 585, "mx": 658},
+        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
+    },
+    "Universitas Jember (Unej)": {
+        "Kedokteran":             {"mn": 680, "mx": 748},
+        "Farmasi":                {"mn": 622, "mx": 690},
+        "Teknik Informatika":     {"mn": 612, "mx": 680},
+        "Teknik Sipil":           {"mn": 595, "mx": 663},
+        "Ilmu Hukum":             {"mn": 590, "mx": 658},
+        "Manajemen":              {"mn": 585, "mx": 653},
+        "Akuntansi":              {"mn": 588, "mx": 656},
+        "Matematika":             {"mn": 578, "mx": 646},
+        "Biologi":                {"mn": 568, "mx": 636},
+        "_default":               {"mn": 578, "mx": 650},
+        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
+    },
+    "Universitas Riau (Unri)": {
+        "Kedokteran":             {"mn": 668, "mx": 738},
+        "Teknik Informatika":     {"mn": 605, "mx": 675},
+        "Teknik Sipil":           {"mn": 582, "mx": 652},
+        "Ilmu Hukum":             {"mn": 578, "mx": 648},
+        "Manajemen":              {"mn": 572, "mx": 642},
+        "Matematika":             {"mn": 562, "mx": 632},
+        "Biologi":                {"mn": 555, "mx": 625},
+        "Akuntansi":              {"mn": 568, "mx": 638},
+        "Farmasi":                {"mn": 580, "mx": 650},
+        "_default":               {"mn": 565, "mx": 638},
+        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
+    },
+}
+
+DAFTAR_PTN = list(PTN_JURUSAN_DATA.keys())
+
+# ══════════════════════════════════════════════════════════
+# D3 PTN SCORE DATA — Skor aman per prodi D3 per PTN
+# Berbasis SNPMB/BPPP Kemdikbud & media pendidikan 2025/2026
+# D3 umumnya 35–80 poin lebih rendah dari S1 sejenis
+# (persaingan tetap ada karena kuota D3 lebih kecil)
+# ══════════════════════════════════════════════════════════
+PTN_D3_DATA = {
+    "Universitas Indonesia (UI)": {
+        "D3 Teknik Sipil":         {"mn": 690, "mx": 760},
+        "D3 Teknik Mesin":         {"mn": 685, "mx": 755},
+        "D3 Teknik Elektro":       {"mn": 695, "mx": 765},
+        "D3 Teknik Kimia":         {"mn": 685, "mx": 755},
+        "D3 Teknologi Informasi":  {"mn": 698, "mx": 768},
+        "D3 Teknik Komputer":      {"mn": 698, "mx": 768},
+        "D3 Manajemen":            {"mn": 680, "mx": 748},
+        "D3 Akuntansi":            {"mn": 682, "mx": 750},
+        "D3 Administrasi Bisnis":  {"mn": 672, "mx": 740},
+        "D3 Perbankan & Keuangan": {"mn": 675, "mx": 743},
+        "D3 Keperawatan":          {"mn": 635, "mx": 703},
+        "D3 Farmasi":              {"mn": 688, "mx": 756},
+        "D3 Gizi":                 {"mn": 660, "mx": 728},
+        "D3 Komunikasi":           {"mn": 665, "mx": 733},
+        "D3 Hubungan Masyarakat":  {"mn": 658, "mx": 726},
+        "_default":                {"mn": 665, "mx": 735},
+        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
+    },
+    "Universitas Gadjah Mada (UGM)": {
+        "D3 Teknik Sipil":         {"mn": 682, "mx": 752},
+        "D3 Teknik Mesin":         {"mn": 678, "mx": 748},
+        "D3 Teknik Elektro":       {"mn": 688, "mx": 758},
+        "D3 Teknologi Informasi":  {"mn": 692, "mx": 762},
+        "D3 Teknik Komputer":      {"mn": 692, "mx": 762},
+        "D3 Manajemen":            {"mn": 672, "mx": 742},
+        "D3 Akuntansi":            {"mn": 675, "mx": 745},
+        "D3 Administrasi Bisnis":  {"mn": 665, "mx": 735},
+        "D3 Perbankan & Keuangan": {"mn": 668, "mx": 738},
+        "D3 Keperawatan":          {"mn": 625, "mx": 695},
+        "D3 Farmasi":              {"mn": 680, "mx": 750},
+        "D3 Gizi":                 {"mn": 652, "mx": 722},
+        "D3 Komunikasi":           {"mn": 658, "mx": 728},
+        "D3 Pariwisata":           {"mn": 615, "mx": 685},
+        "D3 Perpajakan":           {"mn": 660, "mx": 730},
+        "D3 Agribisnis":           {"mn": 620, "mx": 690},
+        "_default":                {"mn": 658, "mx": 728},
+        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
+    },
+    "Institut Teknologi Bandung (ITB)": {
+        "D3 Teknik Sipil":         {"mn": 725, "mx": 800},
+        "D3 Teknik Mesin":         {"mn": 720, "mx": 795},
+        "D3 Teknik Elektro":       {"mn": 730, "mx": 805},
+        "D3 Teknik Kimia":         {"mn": 718, "mx": 793},
+        "D3 Teknologi Informasi":  {"mn": 732, "mx": 807},
+        "D3 Teknik Komputer":      {"mn": 732, "mx": 807},
+        "D3 Teknik Mekatronika":   {"mn": 715, "mx": 790},
+        "D3 Desain Grafis":        {"mn": 685, "mx": 755},
+        "D3 Animasi":              {"mn": 680, "mx": 750},
+        "_default":                {"mn": 715, "mx": 790},
+        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
+    },
+    "Universitas Padjadjaran (Unpad)": {
+        "D3 Teknik Komputer":      {"mn": 648, "mx": 718},
+        "D3 Teknologi Informasi":  {"mn": 648, "mx": 718},
+        "D3 Manajemen":            {"mn": 632, "mx": 702},
+        "D3 Akuntansi":            {"mn": 635, "mx": 705},
+        "D3 Administrasi Bisnis":  {"mn": 625, "mx": 695},
+        "D3 Perbankan & Keuangan": {"mn": 628, "mx": 698},
+        "D3 Keperawatan":          {"mn": 598, "mx": 668},
+        "D3 Kebidanan":            {"mn": 595, "mx": 665},
+        "D3 Farmasi":              {"mn": 640, "mx": 710},
+        "D3 Gizi":                 {"mn": 615, "mx": 685},
+        "D3 Analis Kesehatan":     {"mn": 615, "mx": 685},
+        "D3 Komunikasi":           {"mn": 618, "mx": 688},
+        "D3 Hubungan Masyarakat":  {"mn": 612, "mx": 682},
+        "D3 Pariwisata":           {"mn": 598, "mx": 668},
+        "_default":                {"mn": 620, "mx": 690},
+        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
+    },
+    "Institut Pertanian Bogor (IPB)": {
+        "D3 Teknologi Pangan":     {"mn": 628, "mx": 698},
+        "D3 Agribisnis":           {"mn": 618, "mx": 688},
+        "D3 Manajemen":            {"mn": 605, "mx": 675},
+        "D3 Akuntansi":            {"mn": 608, "mx": 678},
+        "D3 Teknologi Informasi":  {"mn": 625, "mx": 695},
+        "D3 Gizi":                 {"mn": 615, "mx": 685},
+        "D3 Komunikasi":           {"mn": 595, "mx": 665},
+        "D3 Farmasi":              {"mn": 618, "mx": 688},
+        "_default":                {"mn": 608, "mx": 678},
+        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
+    },
+    "Universitas Diponegoro (Undip)": {
+        "D3 Teknik Sipil":         {"mn": 605, "mx": 675},
+        "D3 Teknik Mesin":         {"mn": 600, "mx": 670},
+        "D3 Teknik Elektro":       {"mn": 608, "mx": 678},
+        "D3 Teknik Kimia":         {"mn": 598, "mx": 668},
+        "D3 Teknologi Informasi":  {"mn": 618, "mx": 688},
+        "D3 Teknik Komputer":      {"mn": 615, "mx": 685},
+        "D3 Manajemen":            {"mn": 588, "mx": 658},
+        "D3 Akuntansi":            {"mn": 590, "mx": 660},
+        "D3 Perbankan & Keuangan": {"mn": 585, "mx": 655},
+        "D3 Perpajakan":           {"mn": 588, "mx": 658},
+        "D3 Keperawatan":          {"mn": 562, "mx": 632},
+        "D3 Farmasi":              {"mn": 598, "mx": 668},
+        "D3 Analis Kesehatan":     {"mn": 575, "mx": 645},
+        "D3 Komunikasi":           {"mn": 575, "mx": 645},
+        "_default":                {"mn": 585, "mx": 655},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Universitas Airlangga (Unair)": {
+        "D3 Teknologi Informasi":  {"mn": 618, "mx": 688},
+        "D3 Teknik Komputer":      {"mn": 615, "mx": 685},
+        "D3 Manajemen":            {"mn": 600, "mx": 670},
+        "D3 Akuntansi":            {"mn": 602, "mx": 672},
+        "D3 Perbankan & Keuangan": {"mn": 595, "mx": 665},
+        "D3 Keperawatan":          {"mn": 575, "mx": 645},
+        "D3 Kebidanan":            {"mn": 568, "mx": 638},
+        "D3 Farmasi":              {"mn": 618, "mx": 688},
+        "D3 Gizi":                 {"mn": 580, "mx": 650},
+        "D3 Analis Kesehatan":     {"mn": 582, "mx": 652},
+        "D3 Rekam Medis":          {"mn": 565, "mx": 635},
+        "D3 Komunikasi":           {"mn": 582, "mx": 652},
+        "_default":                {"mn": 585, "mx": 658},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Universitas Brawijaya (UB)": {
+        "D3 Teknik Sipil":         {"mn": 575, "mx": 645},
+        "D3 Teknologi Informasi":  {"mn": 590, "mx": 660},
+        "D3 Teknik Komputer":      {"mn": 588, "mx": 658},
+        "D3 Manajemen":            {"mn": 572, "mx": 642},
+        "D3 Akuntansi":            {"mn": 572, "mx": 642},
+        "D3 Administrasi Bisnis":  {"mn": 565, "mx": 635},
+        "D3 Perbankan & Keuangan": {"mn": 562, "mx": 632},
+        "D3 Keperawatan":          {"mn": 548, "mx": 618},
+        "D3 Kebidanan":            {"mn": 542, "mx": 612},
+        "D3 Farmasi":              {"mn": 578, "mx": 648},
+        "D3 Gizi":                 {"mn": 555, "mx": 625},
+        "D3 Agribisnis":           {"mn": 538, "mx": 608},
+        "D3 Teknologi Pangan":     {"mn": 545, "mx": 615},
+        "D3 Komunikasi":           {"mn": 552, "mx": 622},
+        "D3 Pariwisata":           {"mn": 525, "mx": 595},
+        "_default":                {"mn": 558, "mx": 628},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Institut Teknologi Sepuluh Nopember (ITS)": {
+        "D3 Teknik Sipil":         {"mn": 640, "mx": 712},
+        "D3 Teknik Mesin":         {"mn": 635, "mx": 707},
+        "D3 Teknik Elektro":       {"mn": 645, "mx": 717},
+        "D3 Teknik Kimia":         {"mn": 628, "mx": 700},
+        "D3 Teknologi Informasi":  {"mn": 652, "mx": 724},
+        "D3 Teknik Komputer":      {"mn": 648, "mx": 720},
+        "D3 Teknik Mekatronika":   {"mn": 632, "mx": 704},
+        "D3 Manajemen":            {"mn": 605, "mx": 675},
+        "D3 Desain Grafis":        {"mn": 598, "mx": 668},
+        "_default":                {"mn": 628, "mx": 700},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Universitas Sebelas Maret (UNS)": {
+        "D3 Teknik Sipil":         {"mn": 555, "mx": 625},
+        "D3 Teknologi Informasi":  {"mn": 562, "mx": 632},
+        "D3 Teknik Komputer":      {"mn": 558, "mx": 628},
+        "D3 Manajemen":            {"mn": 545, "mx": 615},
+        "D3 Akuntansi":            {"mn": 548, "mx": 618},
+        "D3 Administrasi Bisnis":  {"mn": 538, "mx": 608},
+        "D3 Perpajakan":           {"mn": 545, "mx": 615},
+        "D3 Perbankan & Keuangan": {"mn": 542, "mx": 612},
+        "D3 Keperawatan":          {"mn": 520, "mx": 590},
+        "D3 Farmasi":              {"mn": 548, "mx": 618},
+        "D3 Komunikasi":           {"mn": 525, "mx": 595},
+        "D3 Pariwisata":           {"mn": 505, "mx": 575},
+        "_default":                {"mn": 535, "mx": 608},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Universitas Hasanuddin (Unhas)": {
+        "D3 Teknologi Informasi":  {"mn": 558, "mx": 628},
+        "D3 Teknik Komputer":      {"mn": 555, "mx": 625},
+        "D3 Manajemen":            {"mn": 535, "mx": 605},
+        "D3 Akuntansi":            {"mn": 538, "mx": 608},
+        "D3 Keperawatan":          {"mn": 512, "mx": 582},
+        "D3 Kebidanan":            {"mn": 508, "mx": 578},
+        "D3 Farmasi":              {"mn": 548, "mx": 618},
+        "D3 Gizi":                 {"mn": 518, "mx": 588},
+        "D3 Analis Kesehatan":     {"mn": 515, "mx": 585},
+        "_default":                {"mn": 528, "mx": 598},
+        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
+    },
+    "Universitas Negeri Yogyakarta (UNY)": {
+        "D3 Teknik Sipil":         {"mn": 498, "mx": 568},
+        "D3 Teknik Elektro":       {"mn": 502, "mx": 572},
+        "D3 Teknologi Informasi":  {"mn": 510, "mx": 580},
+        "D3 Manajemen":            {"mn": 495, "mx": 565},
+        "D3 Akuntansi":            {"mn": 495, "mx": 565},
+        "D3 Administrasi Bisnis":  {"mn": 488, "mx": 558},
+        "D3 Bahasa Inggris":       {"mn": 498, "mx": 568},
+        "D3 Pariwisata":           {"mn": 475, "mx": 545},
+        "D3 Komunikasi":           {"mn": 480, "mx": 550},
+        "_default":                {"mn": 490, "mx": 562},
+        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
+    },
+    "Universitas Negeri Semarang (UNNES)": {
+        "D3 Teknik Sipil":         {"mn": 488, "mx": 558},
+        "D3 Teknik Elektro":       {"mn": 490, "mx": 560},
+        "D3 Teknologi Informasi":  {"mn": 498, "mx": 568},
+        "D3 Manajemen":            {"mn": 480, "mx": 550},
+        "D3 Akuntansi":            {"mn": 482, "mx": 552},
+        "D3 Keperawatan":          {"mn": 462, "mx": 532},
+        "D3 Farmasi":              {"mn": 478, "mx": 548},
+        "_default":                {"mn": 478, "mx": 550},
+        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
+    },
+    "Universitas Negeri Malang (UM)": {
+        "D3 Teknologi Informasi":  {"mn": 492, "mx": 562},
+        "D3 Teknik Komputer":      {"mn": 490, "mx": 560},
+        "D3 Manajemen":            {"mn": 478, "mx": 548},
+        "D3 Akuntansi":            {"mn": 480, "mx": 550},
+        "D3 Administrasi Bisnis":  {"mn": 472, "mx": 542},
+        "D3 Keperawatan":          {"mn": 458, "mx": 528},
+        "D3 Pariwisata":           {"mn": 455, "mx": 525},
+        "D3 Bahasa Inggris":       {"mn": 465, "mx": 535},
+        "_default":                {"mn": 472, "mx": 544},
+        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
+    },
+    "Universitas Andalas (Unand)": {
+        "D3 Teknologi Informasi":  {"mn": 522, "mx": 592},
+        "D3 Teknik Komputer":      {"mn": 518, "mx": 588},
+        "D3 Manajemen":            {"mn": 505, "mx": 575},
+        "D3 Akuntansi":            {"mn": 508, "mx": 578},
+        "D3 Keperawatan":          {"mn": 482, "mx": 552},
+        "D3 Kebidanan":            {"mn": 478, "mx": 548},
+        "D3 Farmasi":              {"mn": 518, "mx": 588},
+        "D3 Gizi":                 {"mn": 488, "mx": 558},
+        "D3 Analis Kesehatan":     {"mn": 485, "mx": 555},
+        "D3 Pariwisata":           {"mn": 462, "mx": 532},
+        "_default":                {"mn": 495, "mx": 565},
+        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
+    },
+    "Universitas Sumatera Utara (USU)": {
+        "D3 Teknologi Informasi":  {"mn": 515, "mx": 585},
+        "D3 Teknik Komputer":      {"mn": 512, "mx": 582},
+        "D3 Manajemen":            {"mn": 498, "mx": 568},
+        "D3 Akuntansi":            {"mn": 500, "mx": 570},
+        "D3 Perbankan & Keuangan": {"mn": 495, "mx": 565},
+        "D3 Perpajakan":           {"mn": 495, "mx": 565},
+        "D3 Keperawatan":          {"mn": 472, "mx": 542},
+        "D3 Kebidanan":            {"mn": 468, "mx": 538},
+        "D3 Farmasi":              {"mn": 505, "mx": 575},
+        "D3 Analis Kesehatan":     {"mn": 475, "mx": 545},
+        "D3 Pariwisata":           {"mn": 452, "mx": 522},
+        "D3 Agribisnis":           {"mn": 455, "mx": 525},
+        "_default":                {"mn": 485, "mx": 556},
+        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
+    },
+    "Universitas Sriwijaya (Unsri)": {
+        "D3 Teknik Sipil":         {"mn": 468, "mx": 538},
+        "D3 Teknik Mesin":         {"mn": 462, "mx": 532},
+        "D3 Teknologi Informasi":  {"mn": 478, "mx": 548},
+        "D3 Manajemen":            {"mn": 455, "mx": 525},
+        "D3 Akuntansi":            {"mn": 458, "mx": 528},
+        "D3 Keperawatan":          {"mn": 435, "mx": 505},
+        "D3 Kebidanan":            {"mn": 430, "mx": 500},
+        "D3 Farmasi":              {"mn": 465, "mx": 535},
+        "D3 Agribisnis":           {"mn": 432, "mx": 502},
+        "_default":                {"mn": 450, "mx": 522},
+        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
+    },
+    "Universitas Lampung (Unila)": {
+        "D3 Teknik Sipil":         {"mn": 455, "mx": 525},
+        "D3 Teknologi Informasi":  {"mn": 462, "mx": 532},
+        "D3 Manajemen":            {"mn": 442, "mx": 512},
+        "D3 Akuntansi":            {"mn": 445, "mx": 515},
+        "D3 Keperawatan":          {"mn": 420, "mx": 490},
+        "D3 Kebidanan":            {"mn": 415, "mx": 485},
+        "D3 Agribisnis":           {"mn": 418, "mx": 488},
+        "_default":                {"mn": 435, "mx": 507},
+        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
+    },
+    "Universitas Jember (Unej)": {
+        "D3 Teknik Sipil":         {"mn": 448, "mx": 518},
+        "D3 Teknologi Informasi":  {"mn": 455, "mx": 525},
+        "D3 Manajemen":            {"mn": 438, "mx": 508},
+        "D3 Akuntansi":            {"mn": 440, "mx": 510},
+        "D3 Keperawatan":          {"mn": 415, "mx": 485},
+        "D3 Kebidanan":            {"mn": 410, "mx": 480},
+        "D3 Farmasi":              {"mn": 445, "mx": 515},
+        "D3 Agribisnis":           {"mn": 412, "mx": 482},
+        "D3 Teknologi Pangan":     {"mn": 418, "mx": 488},
+        "D3 Pariwisata":           {"mn": 395, "mx": 465},
+        "_default":                {"mn": 428, "mx": 500},
+        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
+    },
+    "Universitas Riau (Unri)": {
+        "D3 Teknik Sipil":         {"mn": 440, "mx": 510},
+        "D3 Teknologi Informasi":  {"mn": 448, "mx": 518},
+        "D3 Manajemen":            {"mn": 428, "mx": 498},
+        "D3 Akuntansi":            {"mn": 430, "mx": 500},
+        "D3 Keperawatan":          {"mn": 405, "mx": 475},
+        "D3 Kebidanan":            {"mn": 400, "mx": 470},
+        "D3 Agribisnis":           {"mn": 402, "mx": 472},
+        "D3 Pariwisata":           {"mn": 385, "mx": 455},
+        "_default":                {"mn": 418, "mx": 490},
+        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
+    },
+}
+
+def get_ptn_info(kampus, jurusan, jenjang="S1 (Sarjana)"):
+    """Ambil info skor PTN berdasarkan kampus, jurusan, dan jenjang"""
+    if "D3" in jenjang or jurusan.startswith("D3"):
+        ptn = PTN_D3_DATA.get(kampus, {})
+        if not ptn:
+            # Fallback: gunakan data S1 dan kurangi 80 poin
+            ptn_s1 = PTN_JURUSAN_DATA.get(kampus, {})
+            base = ptn_s1.get(jurusan, ptn_s1.get("_default", {"mn":500,"mx":570}))
+            return {
+                "mn": max(380, base["mn"] - 80),
+                "mx": max(450, base["mx"] - 80),
+                "k": ptn_s1.get("_klaster", 4),
+                "lbl": ptn_s1.get("_lbl", "🔸 Klaster 4 — Regional")
+            }
+        jurusan_data = ptn.get(jurusan, ptn.get("_default", {"mn":500,"mx":570}))
+        return {
+            "mn": jurusan_data["mn"],
+            "mx": jurusan_data["mx"],
+            "k": ptn.get("_klaster", 4),
+            "lbl": ptn.get("_lbl", "🔸 Klaster 4 — Regional")
+        }
+    else:
+        ptn = PTN_JURUSAN_DATA.get(kampus, {})
+        if not ptn:
+            return {"mn": 650, "mx": 720, "k": 4, "lbl": "🔸 Klaster 4 — Regional"}
+        jurusan_data = ptn.get(jurusan, ptn.get("_default", {"mn": 650, "mx": 720}))
+        return {
+            "mn": jurusan_data["mn"],
+            "mx": jurusan_data["mx"],
+            "k": ptn.get("_klaster", 4),
+            "lbl": ptn.get("_lbl", "🔸 Klaster 4 — Regional")
+        }
+
+# Untuk kompatibilitas fungsi lama
+def get_ptn(k):
+    ptn = PTN_JURUSAN_DATA.get(k, {})
+    default = ptn.get("_default", {"mn": 650, "mx": 720})
+    return {
+        "k": ptn.get("_klaster", 4),
+        "mn": default["mn"],
+        "mx": default["mx"],
+        "lbl": ptn.get("_lbl", "🔸 Klaster 4")
+    }
 
 ALTERNATIF_MAP = {
-    "Administrasi Negara":["Ilmu Pemerintahan","Ilmu Politik","Sosiologi"],
-    "Agribisnis":["Agroteknologi","Peternakan","Teknologi Pangan"],
-    "Agroteknologi":["Agribisnis","Biologi","Peternakan"],
-    "Akuntansi":["Manajemen","Ekonomi Pembangunan","Keuangan dan Perbankan"],
-    "Antropologi Sosial":["Sosiologi","Ilmu Kesejahteraan Sosial","Psikologi"],
-    "Arsitektur":["Perencanaan Wilayah dan Kota","Teknik Sipil","Teknik Lingkungan"],
-    "Biologi":["Bioteknologi","Agroteknologi","Ilmu Gizi"],
-    "Bioteknologi":["Biologi","Kimia","Farmasi"],
-    "Bisnis Internasional":["Manajemen","Hubungan Internasional","Ilmu Komunikasi"],
-    "Ekonomi Pembangunan":["Manajemen","Akuntansi","Ilmu Politik"],
-    "Farmasi":["Kimia","Ilmu Gizi","Bioteknologi"],
-    "Filsafat":["Ilmu Sejarah","Sosiologi","Ilmu Politik"],
+    "Kedokteran":["Keperawatan","Farmasi","Gizi"],
+    "Kedokteran Gigi":["Farmasi","Keperawatan","Kesehatan Masyarakat"],
+    "Teknik Informatika":["Statistika","Matematika","Teknik Elektro"],
+    "Teknik Sipil":["Teknik Industri","Teknik Mesin","Fisika"],
+    "Teknik Mesin":["Teknik Industri","Teknik Sipil","Fisika"],
+    "Teknik Elektro":["Teknik Informatika","Fisika","Matematika"],
+    "Teknik Industri":["Teknik Sipil","Manajemen","Statistika"],
+    "Teknik Kimia":["Kimia","Farmasi","Teknik Industri"],
+    "Matematika":["Statistika","Aktuaria","Fisika"],
     "Fisika":["Matematika","Teknik Mesin","Teknik Elektro"],
-    "Hubungan Internasional":["Ilmu Komunikasi","Ilmu Politik","Bisnis Internasional"],
-    "Hukum":["Ilmu Politik","Administrasi Negara","Sosiologi"],
-    "Ilmu Administrasi Bisnis":["Manajemen","Ilmu Komunikasi","Ilmu Pemerintahan"],
-    "Ilmu Gizi":["Keperawatan","Farmasi","Biologi"],
-    "Ilmu Kelautan":["Kehutanan","Agribisnis","Biologi"],
-    "Ilmu Kesejahteraan Sosial":["Sosiologi","Psikologi","Ilmu Komunikasi"],
-    "Ilmu Komputer":["Teknik Informatika","Statistika","Matematika"],
-    "Ilmu Komunikasi":["Hubungan Internasional","Ilmu Pemerintahan","Psikologi"],
-    "Ilmu Pemerintahan":["Administrasi Negara","Ilmu Politik","Hukum"],
-    "Ilmu Politik":["Hukum","Sosiologi","Ilmu Pemerintahan"],
-    "Ilmu Sejarah":["Sosiologi","Antropologi Sosial","Pendidikan Sejarah"],
-    "Ilmu Tanah":["Agribisnis","Teknik Lingkungan","Kehutanan"],
-    "Kedokteran Gigi":["Pendidikan Dokter (Kedokteran)","Farmasi","Keperawatan"],
-    "Kehutanan":["Ilmu Kelautan","Teknik Lingkungan","Agribisnis"],
-    "Keperawatan":["Ilmu Gizi","Farmasi","Biologi"],
-    "Keuangan dan Perbankan":["Akuntansi","Ekonomi Pembangunan","Manajemen"],
-    "Kimia":["Farmasi","Bioteknologi","Teknik Kimia"],
-    "Kriminologi":["Hukum","Sosiologi","Ilmu Kesejahteraan Sosial"],
-    "Manajemen":["Ilmu Administrasi Bisnis","Ekonomi Pembangunan","Bisnis Internasional"],
-    "Matematika":["Statistika","Fisika","Ilmu Komputer"],
-    "Pariwisata":["Ilmu Komunikasi","Manajemen","Hubungan Internasional"],
-    "Pendidikan Bahasa Inggris":["Sastra Inggris","Hubungan Internasional","Bisnis Internasional"],
-    "Pendidikan Dokter (Kedokteran)":["Kedokteran Gigi","Farmasi","Keperawatan"],
-    "Pendidikan Ekonomi":["Manajemen","Ekonomi Pembangunan","Akuntansi"],
-    "Pendidikan Pancasila dan Kewarganegaraan":["Ilmu Politik","Sosiologi","Hukum"],
-    "Pendidikan Sejarah":["Ilmu Sejarah","Sosiologi","Pendidikan Sosiologi"],
-    "Pendidikan Sosiologi":["Sosiologi","Ilmu Kesejahteraan Sosial","Psikologi"],
-    "Perencanaan Wilayah dan Kota":["Arsitektur","Teknik Sipil","Teknik Lingkungan"],
-    "Perpustakaan dan Ilmu Informasi":["Ilmu Komunikasi","Administrasi Negara","Sosiologi"],
-    "Peternakan":["Agribisnis","Agroteknologi","Kehutanan"],
-    "Psikologi":["Ilmu Komunikasi","Sosiologi","Ilmu Kesejahteraan Sosial"],
-    "Sastra Arab":["Sastra Inggris","Ilmu Komunikasi","Hubungan Internasional"],
-    "Sastra Indonesia":["Sastra Jawa","Ilmu Komunikasi","Ilmu Sejarah"],
-    "Sastra Inggris":["Pendidikan Bahasa Inggris","Hubungan Internasional","Bisnis Internasional"],
-    "Sastra Jawa":["Sastra Indonesia","Ilmu Sejarah","Sosiologi"],
-    "Sosiologi":["Ilmu Politik","Antropologi Sosial","Psikologi"],
-    "Statistika":["Matematika","Akuntansi","Ilmu Komputer"],
-    "Teknik Elektro":["Teknik Informatika","Ilmu Komputer","Teknik Mesin"],
-    "Teknik Geologi":["Teknik Perminyakan","Fisika","Teknik Lingkungan"],
-    "Teknik Industri":["Teknik Mesin","Manajemen","Statistika"],
-    "Teknik Informatika":["Ilmu Komputer","Teknik Elektro","Statistika"],
-    "Teknik Kimia":["Kimia","Teknologi Pangan","Teknik Lingkungan"],
-    "Teknik Lingkungan":["Teknik Kimia","Ilmu Tanah","Kehutanan"],
-    "Teknik Mesin":["Teknik Industri","Teknik Elektro","Teknik Sipil"],
-    "Teknik Perminyakan":["Teknik Geologi","Teknik Kimia","Fisika"],
-    "Teknik Sipil":["Arsitektur","Perencanaan Wilayah dan Kota","Teknik Lingkungan"],
-    "Teknologi Pangan":["Ilmu Gizi","Agribisnis","Kimia"],
+    "Kimia":["Farmasi","Teknik Kimia","Biologi"],
+    "Biologi":["Gizi","Keperawatan","Kimia"],
+    "Statistika":["Matematika","Aktuaria","Teknik Informatika"],
+    "Aktuaria":["Statistika","Matematika","Ekonomi"],
+    "Farmasi":["Kimia","Gizi","Kesehatan Masyarakat"],
+    "Gizi":["Keperawatan","Farmasi","Kesehatan Masyarakat"],
+    "Keperawatan":["Gizi","Kesehatan Masyarakat","Farmasi"],
+    "Kesehatan Masyarakat":["Keperawatan","Gizi","Biologi"],
+    "Ilmu Hukum":["Administrasi Publik","Ilmu Politik","Sosiologi"],
+    "Ekonomi":["Akuntansi","Manajemen","Bisnis"],
+    "Manajemen":["Ekonomi","Bisnis","Akuntansi"],
+    "Akuntansi":["Manajemen","Ekonomi","Bisnis"],
+    "Bisnis":["Manajemen","Ekonomi","Akuntansi"],
+    "Psikologi":["Ilmu Komunikasi","Sosiologi","Administrasi Publik"],
+    "Ilmu Komunikasi":["Hubungan Internasional","Administrasi Publik","Psikologi"],
+    "Hubungan Internasional":["Ilmu Komunikasi","Ilmu Politik","Sejarah"],
+    "Administrasi Publik":["Ilmu Politik","Sosiologi","Ilmu Hukum"],
+    "Sastra Inggris":["Pendidikan Bahasa Inggris","Hubungan Internasional","Ilmu Komunikasi"],
+    "Pendidikan Bahasa Indonesia":["Sastra Inggris","Ilmu Komunikasi","Sosiologi"],
+    "Pendidikan Bahasa Inggris":["Sastra Inggris","Hubungan Internasional","Ilmu Komunikasi"],
+    "Sosiologi":["Ilmu Politik","Administrasi Publik","Psikologi"],
+    "Ilmu Politik":["Sosiologi","Hubungan Internasional","Administrasi Publik"],
+    "Sejarah":["Sosiologi","Geografi","Ilmu Politik"],
+    "Geografi":["Sejarah","Sosiologi","Kesehatan Masyarakat"],
 }
 
-PTN_JURUSAN_DATA = {
-    "Universitas Indonesia": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 805, "mx": 840},
-        "Teknik Informatika": {"mn": 795, "mx": 830},
-        "Farmasi": {"mn": 780, "mx": 815},
-        "Teknik Elektro": {"mn": 775, "mx": 810},
-        "Ilmu Komputer": {"mn": 770, "mx": 805},
-        "Teknik Kimia": {"mn": 765, "mx": 800},
-        "Teknik Mesin": {"mn": 760, "mx": 795},
-        "Teknik Sipil": {"mn": 755, "mx": 790},
-        "Kedokteran Gigi": {"mn": 753, "mx": 788},
-        "Bioteknologi": {"mn": 745, "mx": 780},
-        "Teknik Industri": {"mn": 743, "mx": 778},
-        "Statistika": {"mn": 737, "mx": 772},
-        "Matematika": {"mn": 733, "mx": 768},
-        "Fisika": {"mn": 727, "mx": 762},
-        "Kimia": {"mn": 723, "mx": 758},
-        "Biologi": {"mn": 720, "mx": 755},
-        "Teknik Lingkungan": {"mn": 715, "mx": 750},
-        "Teknik Geologi": {"mn": 713, "mx": 748},
-        "Teknik Perminyakan": {"mn": 710, "mx": 745},
-        "Arsitektur": {"mn": 709, "mx": 744},
-        "Perencanaan Wilayah dan Kota": {"mn": 705, "mx": 740},
-        "Ilmu Gizi": {"mn": 703, "mx": 738},
-        "Keperawatan": {"mn": 697, "mx": 732},
-        "Agroteknologi": {"mn": 690, "mx": 725},
-        "Agribisnis": {"mn": 688, "mx": 723},
-        "Kehutanan": {"mn": 683, "mx": 718},
-        "Ilmu Tanah": {"mn": 677, "mx": 712},
-        "Teknologi Pangan": {"mn": 675, "mx": 710},
-        "Peternakan": {"mn": 670, "mx": 705},
-        "Ilmu Kelautan": {"mn": 665, "mx": 700},
-        "Psikologi": {"mn": 785, "mx": 820},
-        "Hukum": {"mn": 775, "mx": 810},
-        "Akuntansi": {"mn": 770, "mx": 805},
-        "Manajemen": {"mn": 763, "mx": 798},
-        "Ilmu Komunikasi": {"mn": 760, "mx": 795},
-        "Ekonomi Pembangunan": {"mn": 753, "mx": 788},
-        "Hubungan Internasional": {"mn": 750, "mx": 785},
-        "Ilmu Administrasi Bisnis": {"mn": 745, "mx": 780},
-        "Ilmu Politik": {"mn": 740, "mx": 775},
-        "Sosiologi": {"mn": 733, "mx": 768},
-        "Ilmu Kesejahteraan Sosial": {"mn": 727, "mx": 762},
-        "Kriminologi": {"mn": 725, "mx": 760},
-        "Ilmu Pemerintahan": {"mn": 723, "mx": 758},
-        "Antropologi Sosial": {"mn": 717, "mx": 752},
-        "Ilmu Sejarah": {"mn": 710, "mx": 745},
-        "Sastra Inggris": {"mn": 707, "mx": 742},
-        "Sastra Indonesia": {"mn": 700, "mx": 735},
-        "Pendidikan Bahasa Inggris": {"mn": 697, "mx": 732},
-        "Pendidikan Ekonomi": {"mn": 693, "mx": 728},
-        "Pendidikan Sejarah": {"mn": 689, "mx": 724},
-        "Pendidikan Sosiologi": {"mn": 685, "mx": 720},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 683, "mx": 718},
-        "Keuangan dan Perbankan": {"mn": 680, "mx": 715},
-        "Bisnis Internasional": {"mn": 677, "mx": 712},
-        "Pariwisata": {"mn": 670, "mx": 705},
-        "Administrasi Negara": {"mn": 667, "mx": 702},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 663, "mx": 698},
-        "Sastra Arab": {"mn": 655, "mx": 690},
-        "Sastra Jawa": {"mn": 645, "mx": 680},
-        "Filsafat": {"mn": 640, "mx": 675},
-        "_default": {"mn": 719, "mx": 754},
-        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
-    },
-    "Universitas Gadjah Mada": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 805, "mx": 840},
-        "Teknik Informatika": {"mn": 795, "mx": 830},
-        "Farmasi": {"mn": 780, "mx": 815},
-        "Teknik Elektro": {"mn": 775, "mx": 810},
-        "Ilmu Komputer": {"mn": 770, "mx": 805},
-        "Teknik Kimia": {"mn": 765, "mx": 800},
-        "Teknik Mesin": {"mn": 760, "mx": 795},
-        "Teknik Sipil": {"mn": 755, "mx": 790},
-        "Kedokteran Gigi": {"mn": 753, "mx": 788},
-        "Bioteknologi": {"mn": 745, "mx": 780},
-        "Teknik Industri": {"mn": 743, "mx": 778},
-        "Statistika": {"mn": 737, "mx": 772},
-        "Matematika": {"mn": 733, "mx": 768},
-        "Fisika": {"mn": 727, "mx": 762},
-        "Kimia": {"mn": 723, "mx": 758},
-        "Biologi": {"mn": 720, "mx": 755},
-        "Teknik Lingkungan": {"mn": 715, "mx": 750},
-        "Teknik Geologi": {"mn": 713, "mx": 748},
-        "Teknik Perminyakan": {"mn": 710, "mx": 745},
-        "Arsitektur": {"mn": 709, "mx": 744},
-        "Perencanaan Wilayah dan Kota": {"mn": 705, "mx": 740},
-        "Ilmu Gizi": {"mn": 703, "mx": 738},
-        "Keperawatan": {"mn": 697, "mx": 732},
-        "Agroteknologi": {"mn": 690, "mx": 725},
-        "Agribisnis": {"mn": 688, "mx": 723},
-        "Kehutanan": {"mn": 683, "mx": 718},
-        "Ilmu Tanah": {"mn": 677, "mx": 712},
-        "Teknologi Pangan": {"mn": 675, "mx": 710},
-        "Peternakan": {"mn": 670, "mx": 705},
-        "Ilmu Kelautan": {"mn": 665, "mx": 700},
-        "Psikologi": {"mn": 785, "mx": 820},
-        "Hukum": {"mn": 775, "mx": 810},
-        "Akuntansi": {"mn": 770, "mx": 805},
-        "Manajemen": {"mn": 763, "mx": 798},
-        "Ilmu Komunikasi": {"mn": 760, "mx": 795},
-        "Ekonomi Pembangunan": {"mn": 753, "mx": 788},
-        "Hubungan Internasional": {"mn": 750, "mx": 785},
-        "Ilmu Administrasi Bisnis": {"mn": 745, "mx": 780},
-        "Ilmu Politik": {"mn": 740, "mx": 775},
-        "Sosiologi": {"mn": 733, "mx": 768},
-        "Ilmu Kesejahteraan Sosial": {"mn": 727, "mx": 762},
-        "Kriminologi": {"mn": 725, "mx": 760},
-        "Ilmu Pemerintahan": {"mn": 723, "mx": 758},
-        "Antropologi Sosial": {"mn": 717, "mx": 752},
-        "Ilmu Sejarah": {"mn": 710, "mx": 745},
-        "Sastra Inggris": {"mn": 707, "mx": 742},
-        "Sastra Indonesia": {"mn": 700, "mx": 735},
-        "Pendidikan Bahasa Inggris": {"mn": 697, "mx": 732},
-        "Pendidikan Ekonomi": {"mn": 693, "mx": 728},
-        "Pendidikan Sejarah": {"mn": 689, "mx": 724},
-        "Pendidikan Sosiologi": {"mn": 685, "mx": 720},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 683, "mx": 718},
-        "Keuangan dan Perbankan": {"mn": 680, "mx": 715},
-        "Bisnis Internasional": {"mn": 677, "mx": 712},
-        "Pariwisata": {"mn": 670, "mx": 705},
-        "Administrasi Negara": {"mn": 667, "mx": 702},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 663, "mx": 698},
-        "Sastra Arab": {"mn": 655, "mx": 690},
-        "Sastra Jawa": {"mn": 645, "mx": 680},
-        "Filsafat": {"mn": 640, "mx": 675},
-        "_default": {"mn": 719, "mx": 754},
-        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
-    },
-    "Universitas Airlangga": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 780, "mx": 815},
-        "Teknik Informatika": {"mn": 771, "mx": 806},
-        "Farmasi": {"mn": 756, "mx": 791},
-        "Teknik Elektro": {"mn": 751, "mx": 786},
-        "Ilmu Komputer": {"mn": 746, "mx": 781},
-        "Teknik Kimia": {"mn": 742, "mx": 777},
-        "Teknik Mesin": {"mn": 737, "mx": 772},
-        "Teknik Sipil": {"mn": 732, "mx": 767},
-        "Kedokteran Gigi": {"mn": 730, "mx": 765},
-        "Bioteknologi": {"mn": 722, "mx": 757},
-        "Teknik Industri": {"mn": 720, "mx": 755},
-        "Statistika": {"mn": 714, "mx": 749},
-        "Matematika": {"mn": 711, "mx": 746},
-        "Fisika": {"mn": 705, "mx": 740},
-        "Kimia": {"mn": 701, "mx": 736},
-        "Biologi": {"mn": 698, "mx": 733},
-        "Teknik Lingkungan": {"mn": 693, "mx": 728},
-        "Teknik Geologi": {"mn": 691, "mx": 726},
-        "Teknik Perminyakan": {"mn": 688, "mx": 723},
-        "Arsitektur": {"mn": 687, "mx": 722},
-        "Perencanaan Wilayah dan Kota": {"mn": 683, "mx": 718},
-        "Ilmu Gizi": {"mn": 681, "mx": 716},
-        "Keperawatan": {"mn": 676, "mx": 711},
-        "Agroteknologi": {"mn": 669, "mx": 704},
-        "Agribisnis": {"mn": 667, "mx": 702},
-        "Kehutanan": {"mn": 662, "mx": 697},
-        "Ilmu Tanah": {"mn": 656, "mx": 691},
-        "Teknologi Pangan": {"mn": 654, "mx": 689},
-        "Peternakan": {"mn": 649, "mx": 684},
-        "Ilmu Kelautan": {"mn": 645, "mx": 680},
-        "Psikologi": {"mn": 761, "mx": 796},
-        "Hukum": {"mn": 751, "mx": 786},
-        "Akuntansi": {"mn": 746, "mx": 781},
-        "Manajemen": {"mn": 740, "mx": 775},
-        "Ilmu Komunikasi": {"mn": 737, "mx": 772},
-        "Ekonomi Pembangunan": {"mn": 730, "mx": 765},
-        "Hubungan Internasional": {"mn": 727, "mx": 762},
-        "Ilmu Administrasi Bisnis": {"mn": 722, "mx": 757},
-        "Ilmu Politik": {"mn": 717, "mx": 752},
-        "Sosiologi": {"mn": 711, "mx": 746},
-        "Ilmu Kesejahteraan Sosial": {"mn": 705, "mx": 740},
-        "Kriminologi": {"mn": 703, "mx": 738},
-        "Ilmu Pemerintahan": {"mn": 701, "mx": 736},
-        "Antropologi Sosial": {"mn": 695, "mx": 730},
-        "Ilmu Sejarah": {"mn": 688, "mx": 723},
-        "Sastra Inggris": {"mn": 685, "mx": 720},
-        "Sastra Indonesia": {"mn": 679, "mx": 714},
-        "Pendidikan Bahasa Inggris": {"mn": 676, "mx": 711},
-        "Pendidikan Ekonomi": {"mn": 672, "mx": 707},
-        "Pendidikan Sejarah": {"mn": 668, "mx": 703},
-        "Pendidikan Sosiologi": {"mn": 664, "mx": 699},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 662, "mx": 697},
-        "Keuangan dan Perbankan": {"mn": 659, "mx": 694},
-        "Bisnis Internasional": {"mn": 656, "mx": 691},
-        "Pariwisata": {"mn": 649, "mx": 684},
-        "Administrasi Negara": {"mn": 647, "mx": 682},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 643, "mx": 678},
-        "Sastra Arab": {"mn": 635, "mx": 670},
-        "Sastra Jawa": {"mn": 625, "mx": 660},
-        "Filsafat": {"mn": 620, "mx": 655},
-        "_default": {"mn": 697, "mx": 732},
-        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
-    },
-    "Institut Teknologi Bandung": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 805, "mx": 840},
-        "Teknik Informatika": {"mn": 795, "mx": 830},
-        "Farmasi": {"mn": 780, "mx": 815},
-        "Teknik Elektro": {"mn": 775, "mx": 810},
-        "Ilmu Komputer": {"mn": 770, "mx": 805},
-        "Teknik Kimia": {"mn": 765, "mx": 800},
-        "Teknik Mesin": {"mn": 760, "mx": 795},
-        "Teknik Sipil": {"mn": 755, "mx": 790},
-        "Kedokteran Gigi": {"mn": 753, "mx": 788},
-        "Bioteknologi": {"mn": 745, "mx": 780},
-        "Teknik Industri": {"mn": 743, "mx": 778},
-        "Statistika": {"mn": 737, "mx": 772},
-        "Matematika": {"mn": 733, "mx": 768},
-        "Fisika": {"mn": 727, "mx": 762},
-        "Kimia": {"mn": 723, "mx": 758},
-        "Biologi": {"mn": 720, "mx": 755},
-        "Teknik Lingkungan": {"mn": 715, "mx": 750},
-        "Teknik Geologi": {"mn": 713, "mx": 748},
-        "Teknik Perminyakan": {"mn": 710, "mx": 745},
-        "Arsitektur": {"mn": 709, "mx": 744},
-        "Perencanaan Wilayah dan Kota": {"mn": 705, "mx": 740},
-        "Ilmu Gizi": {"mn": 703, "mx": 738},
-        "Keperawatan": {"mn": 697, "mx": 732},
-        "Agroteknologi": {"mn": 690, "mx": 725},
-        "Agribisnis": {"mn": 688, "mx": 723},
-        "Kehutanan": {"mn": 683, "mx": 718},
-        "Ilmu Tanah": {"mn": 677, "mx": 712},
-        "Teknologi Pangan": {"mn": 675, "mx": 710},
-        "Peternakan": {"mn": 670, "mx": 705},
-        "Ilmu Kelautan": {"mn": 665, "mx": 700},
-        "Psikologi": {"mn": 785, "mx": 820},
-        "Hukum": {"mn": 775, "mx": 810},
-        "Akuntansi": {"mn": 770, "mx": 805},
-        "Manajemen": {"mn": 763, "mx": 798},
-        "Ilmu Komunikasi": {"mn": 760, "mx": 795},
-        "Ekonomi Pembangunan": {"mn": 753, "mx": 788},
-        "Hubungan Internasional": {"mn": 750, "mx": 785},
-        "Ilmu Administrasi Bisnis": {"mn": 745, "mx": 780},
-        "Ilmu Politik": {"mn": 740, "mx": 775},
-        "Sosiologi": {"mn": 733, "mx": 768},
-        "Ilmu Kesejahteraan Sosial": {"mn": 727, "mx": 762},
-        "Kriminologi": {"mn": 725, "mx": 760},
-        "Ilmu Pemerintahan": {"mn": 723, "mx": 758},
-        "Antropologi Sosial": {"mn": 717, "mx": 752},
-        "Ilmu Sejarah": {"mn": 710, "mx": 745},
-        "Sastra Inggris": {"mn": 707, "mx": 742},
-        "Sastra Indonesia": {"mn": 700, "mx": 735},
-        "Pendidikan Bahasa Inggris": {"mn": 697, "mx": 732},
-        "Pendidikan Ekonomi": {"mn": 693, "mx": 728},
-        "Pendidikan Sejarah": {"mn": 689, "mx": 724},
-        "Pendidikan Sosiologi": {"mn": 685, "mx": 720},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 683, "mx": 718},
-        "Keuangan dan Perbankan": {"mn": 680, "mx": 715},
-        "Bisnis Internasional": {"mn": 677, "mx": 712},
-        "Pariwisata": {"mn": 670, "mx": 705},
-        "Administrasi Negara": {"mn": 667, "mx": 702},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 663, "mx": 698},
-        "Sastra Arab": {"mn": 655, "mx": 690},
-        "Sastra Jawa": {"mn": 645, "mx": 680},
-        "Filsafat": {"mn": 640, "mx": 675},
-        "_default": {"mn": 719, "mx": 754},
-        "_klaster": 1, "_lbl": "⭐ Klaster 1 — Top Tier"
-    },
-    "Universitas Padjadjaran": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 748, "mx": 783},
-        "Teknik Informatika": {"mn": 738, "mx": 773},
-        "Farmasi": {"mn": 724, "mx": 759},
-        "Teknik Elektro": {"mn": 720, "mx": 755},
-        "Ilmu Komputer": {"mn": 715, "mx": 750},
-        "Teknik Kimia": {"mn": 710, "mx": 745},
-        "Teknik Mesin": {"mn": 706, "mx": 741},
-        "Teknik Sipil": {"mn": 701, "mx": 736},
-        "Kedokteran Gigi": {"mn": 699, "mx": 734},
-        "Bioteknologi": {"mn": 692, "mx": 727},
-        "Teknik Industri": {"mn": 690, "mx": 725},
-        "Statistika": {"mn": 684, "mx": 719},
-        "Matematika": {"mn": 681, "mx": 716},
-        "Fisika": {"mn": 675, "mx": 710},
-        "Kimia": {"mn": 671, "mx": 706},
-        "Biologi": {"mn": 669, "mx": 704},
-        "Teknik Lingkungan": {"mn": 664, "mx": 699},
-        "Teknik Geologi": {"mn": 662, "mx": 697},
-        "Teknik Perminyakan": {"mn": 659, "mx": 694},
-        "Arsitektur": {"mn": 658, "mx": 693},
-        "Perencanaan Wilayah dan Kota": {"mn": 655, "mx": 690},
-        "Ilmu Gizi": {"mn": 653, "mx": 688},
-        "Keperawatan": {"mn": 647, "mx": 682},
-        "Agroteknologi": {"mn": 641, "mx": 676},
-        "Agribisnis": {"mn": 639, "mx": 674},
-        "Kehutanan": {"mn": 634, "mx": 669},
-        "Ilmu Tanah": {"mn": 629, "mx": 664},
-        "Teknologi Pangan": {"mn": 627, "mx": 662},
-        "Peternakan": {"mn": 622, "mx": 657},
-        "Ilmu Kelautan": {"mn": 617, "mx": 652},
-        "Psikologi": {"mn": 729, "mx": 764},
-        "Hukum": {"mn": 720, "mx": 755},
-        "Akuntansi": {"mn": 715, "mx": 750},
-        "Manajemen": {"mn": 709, "mx": 744},
-        "Ilmu Komunikasi": {"mn": 706, "mx": 741},
-        "Ekonomi Pembangunan": {"mn": 699, "mx": 734},
-        "Hubungan Internasional": {"mn": 696, "mx": 731},
-        "Ilmu Administrasi Bisnis": {"mn": 692, "mx": 727},
-        "Ilmu Politik": {"mn": 687, "mx": 722},
-        "Sosiologi": {"mn": 681, "mx": 716},
-        "Ilmu Kesejahteraan Sosial": {"mn": 675, "mx": 710},
-        "Kriminologi": {"mn": 673, "mx": 708},
-        "Ilmu Pemerintahan": {"mn": 671, "mx": 706},
-        "Antropologi Sosial": {"mn": 666, "mx": 701},
-        "Ilmu Sejarah": {"mn": 659, "mx": 694},
-        "Sastra Inggris": {"mn": 656, "mx": 691},
-        "Sastra Indonesia": {"mn": 650, "mx": 685},
-        "Pendidikan Bahasa Inggris": {"mn": 647, "mx": 682},
-        "Pendidikan Ekonomi": {"mn": 643, "mx": 678},
-        "Pendidikan Sejarah": {"mn": 640, "mx": 675},
-        "Pendidikan Sosiologi": {"mn": 636, "mx": 671},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 634, "mx": 669},
-        "Keuangan dan Perbankan": {"mn": 631, "mx": 666},
-        "Bisnis Internasional": {"mn": 629, "mx": 664},
-        "Pariwisata": {"mn": 622, "mx": 657},
-        "Administrasi Negara": {"mn": 619, "mx": 654},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 616, "mx": 651},
-        "Sastra Arab": {"mn": 608, "mx": 643},
-        "Sastra Jawa": {"mn": 599, "mx": 634},
-        "Filsafat": {"mn": 594, "mx": 629},
-        "_default": {"mn": 667, "mx": 702},
-        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
-    },
-    "Institut Pertanian Bogor": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 731, "mx": 766},
-        "Teknik Informatika": {"mn": 722, "mx": 757},
-        "Farmasi": {"mn": 708, "mx": 743},
-        "Teknik Elektro": {"mn": 704, "mx": 739},
-        "Ilmu Komputer": {"mn": 699, "mx": 734},
-        "Teknik Kimia": {"mn": 695, "mx": 730},
-        "Teknik Mesin": {"mn": 690, "mx": 725},
-        "Teknik Sipil": {"mn": 686, "mx": 721},
-        "Kedokteran Gigi": {"mn": 684, "mx": 719},
-        "Bioteknologi": {"mn": 677, "mx": 712},
-        "Teknik Industri": {"mn": 675, "mx": 710},
-        "Statistika": {"mn": 669, "mx": 704},
-        "Matematika": {"mn": 666, "mx": 701},
-        "Fisika": {"mn": 660, "mx": 695},
-        "Kimia": {"mn": 657, "mx": 692},
-        "Biologi": {"mn": 654, "mx": 689},
-        "Teknik Lingkungan": {"mn": 649, "mx": 684},
-        "Teknik Geologi": {"mn": 647, "mx": 682},
-        "Teknik Perminyakan": {"mn": 645, "mx": 680},
-        "Arsitektur": {"mn": 644, "mx": 679},
-        "Perencanaan Wilayah dan Kota": {"mn": 640, "mx": 675},
-        "Ilmu Gizi": {"mn": 638, "mx": 673},
-        "Keperawatan": {"mn": 633, "mx": 668},
-        "Agroteknologi": {"mn": 627, "mx": 662},
-        "Agribisnis": {"mn": 625, "mx": 660},
-        "Kehutanan": {"mn": 620, "mx": 655},
-        "Ilmu Tanah": {"mn": 615, "mx": 650},
-        "Teknologi Pangan": {"mn": 613, "mx": 648},
-        "Peternakan": {"mn": 608, "mx": 643},
-        "Ilmu Kelautan": {"mn": 604, "mx": 639},
-        "Psikologi": {"mn": 713, "mx": 748},
-        "Hukum": {"mn": 704, "mx": 739},
-        "Akuntansi": {"mn": 699, "mx": 734},
-        "Manajemen": {"mn": 693, "mx": 728},
-        "Ilmu Komunikasi": {"mn": 690, "mx": 725},
-        "Ekonomi Pembangunan": {"mn": 684, "mx": 719},
-        "Hubungan Internasional": {"mn": 681, "mx": 716},
-        "Ilmu Administrasi Bisnis": {"mn": 677, "mx": 712},
-        "Ilmu Politik": {"mn": 672, "mx": 707},
-        "Sosiologi": {"mn": 666, "mx": 701},
-        "Ilmu Kesejahteraan Sosial": {"mn": 660, "mx": 695},
-        "Kriminologi": {"mn": 658, "mx": 693},
-        "Ilmu Pemerintahan": {"mn": 657, "mx": 692},
-        "Antropologi Sosial": {"mn": 651, "mx": 686},
-        "Ilmu Sejarah": {"mn": 645, "mx": 680},
-        "Sastra Inggris": {"mn": 642, "mx": 677},
-        "Sastra Indonesia": {"mn": 636, "mx": 671},
-        "Pendidikan Bahasa Inggris": {"mn": 633, "mx": 668},
-        "Pendidikan Ekonomi": {"mn": 629, "mx": 664},
-        "Pendidikan Sejarah": {"mn": 626, "mx": 661},
-        "Pendidikan Sosiologi": {"mn": 622, "mx": 657},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 620, "mx": 655},
-        "Keuangan dan Perbankan": {"mn": 617, "mx": 652},
-        "Bisnis Internasional": {"mn": 615, "mx": 650},
-        "Pariwisata": {"mn": 608, "mx": 643},
-        "Administrasi Negara": {"mn": 606, "mx": 641},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 602, "mx": 637},
-        "Sastra Arab": {"mn": 595, "mx": 630},
-        "Sastra Jawa": {"mn": 586, "mx": 621},
-        "Filsafat": {"mn": 581, "mx": 616},
-        "_default": {"mn": 653, "mx": 688},
-        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
-    },
-    "Institut Teknologi Sepuluh Nopember": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 739, "mx": 774},
-        "Teknik Informatika": {"mn": 730, "mx": 765},
-        "Farmasi": {"mn": 716, "mx": 751},
-        "Teknik Elektro": {"mn": 712, "mx": 747},
-        "Ilmu Komputer": {"mn": 707, "mx": 742},
-        "Teknik Kimia": {"mn": 703, "mx": 738},
-        "Teknik Mesin": {"mn": 698, "mx": 733},
-        "Teknik Sipil": {"mn": 693, "mx": 728},
-        "Kedokteran Gigi": {"mn": 692, "mx": 727},
-        "Bioteknologi": {"mn": 684, "mx": 719},
-        "Teknik Industri": {"mn": 682, "mx": 717},
-        "Statistika": {"mn": 677, "mx": 712},
-        "Matematika": {"mn": 673, "mx": 708},
-        "Fisika": {"mn": 668, "mx": 703},
-        "Kimia": {"mn": 664, "mx": 699},
-        "Biologi": {"mn": 661, "mx": 696},
-        "Teknik Lingkungan": {"mn": 657, "mx": 692},
-        "Teknik Geologi": {"mn": 655, "mx": 690},
-        "Teknik Perminyakan": {"mn": 652, "mx": 687},
-        "Arsitektur": {"mn": 651, "mx": 686},
-        "Perencanaan Wilayah dan Kota": {"mn": 647, "mx": 682},
-        "Ilmu Gizi": {"mn": 646, "mx": 681},
-        "Keperawatan": {"mn": 640, "mx": 675},
-        "Agroteknologi": {"mn": 634, "mx": 669},
-        "Agribisnis": {"mn": 632, "mx": 667},
-        "Kehutanan": {"mn": 627, "mx": 662},
-        "Ilmu Tanah": {"mn": 622, "mx": 657},
-        "Teknologi Pangan": {"mn": 620, "mx": 655},
-        "Peternakan": {"mn": 615, "mx": 650},
-        "Ilmu Kelautan": {"mn": 611, "mx": 646},
-        "Psikologi": {"mn": 721, "mx": 756},
-        "Hukum": {"mn": 712, "mx": 747},
-        "Akuntansi": {"mn": 707, "mx": 742},
-        "Manajemen": {"mn": 701, "mx": 736},
-        "Ilmu Komunikasi": {"mn": 698, "mx": 733},
-        "Ekonomi Pembangunan": {"mn": 692, "mx": 727},
-        "Hubungan Internasional": {"mn": 689, "mx": 724},
-        "Ilmu Administrasi Bisnis": {"mn": 684, "mx": 719},
-        "Ilmu Politik": {"mn": 680, "mx": 715},
-        "Sosiologi": {"mn": 673, "mx": 708},
-        "Ilmu Kesejahteraan Sosial": {"mn": 668, "mx": 703},
-        "Kriminologi": {"mn": 666, "mx": 701},
-        "Ilmu Pemerintahan": {"mn": 664, "mx": 699},
-        "Antropologi Sosial": {"mn": 658, "mx": 693},
-        "Ilmu Sejarah": {"mn": 652, "mx": 687},
-        "Sastra Inggris": {"mn": 649, "mx": 684},
-        "Sastra Indonesia": {"mn": 643, "mx": 678},
-        "Pendidikan Bahasa Inggris": {"mn": 640, "mx": 675},
-        "Pendidikan Ekonomi": {"mn": 636, "mx": 671},
-        "Pendidikan Sejarah": {"mn": 633, "mx": 668},
-        "Pendidikan Sosiologi": {"mn": 629, "mx": 664},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 627, "mx": 662},
-        "Keuangan dan Perbankan": {"mn": 624, "mx": 659},
-        "Bisnis Internasional": {"mn": 622, "mx": 657},
-        "Pariwisata": {"mn": 615, "mx": 650},
-        "Administrasi Negara": {"mn": 612, "mx": 647},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 609, "mx": 644},
-        "Sastra Arab": {"mn": 601, "mx": 636},
-        "Sastra Jawa": {"mn": 592, "mx": 627},
-        "Filsafat": {"mn": 588, "mx": 623},
-        "_default": {"mn": 660, "mx": 695},
-        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
-    },
-    "Universitas Diponegoro": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 731, "mx": 766},
-        "Teknik Informatika": {"mn": 722, "mx": 757},
-        "Farmasi": {"mn": 708, "mx": 743},
-        "Teknik Elektro": {"mn": 704, "mx": 739},
-        "Ilmu Komputer": {"mn": 699, "mx": 734},
-        "Teknik Kimia": {"mn": 695, "mx": 730},
-        "Teknik Mesin": {"mn": 690, "mx": 725},
-        "Teknik Sipil": {"mn": 686, "mx": 721},
-        "Kedokteran Gigi": {"mn": 684, "mx": 719},
-        "Bioteknologi": {"mn": 677, "mx": 712},
-        "Teknik Industri": {"mn": 675, "mx": 710},
-        "Statistika": {"mn": 669, "mx": 704},
-        "Matematika": {"mn": 666, "mx": 701},
-        "Fisika": {"mn": 660, "mx": 695},
-        "Kimia": {"mn": 657, "mx": 692},
-        "Biologi": {"mn": 654, "mx": 689},
-        "Teknik Lingkungan": {"mn": 649, "mx": 684},
-        "Teknik Geologi": {"mn": 647, "mx": 682},
-        "Teknik Perminyakan": {"mn": 645, "mx": 680},
-        "Arsitektur": {"mn": 644, "mx": 679},
-        "Perencanaan Wilayah dan Kota": {"mn": 640, "mx": 675},
-        "Ilmu Gizi": {"mn": 638, "mx": 673},
-        "Keperawatan": {"mn": 633, "mx": 668},
-        "Agroteknologi": {"mn": 627, "mx": 662},
-        "Agribisnis": {"mn": 625, "mx": 660},
-        "Kehutanan": {"mn": 620, "mx": 655},
-        "Ilmu Tanah": {"mn": 615, "mx": 650},
-        "Teknologi Pangan": {"mn": 613, "mx": 648},
-        "Peternakan": {"mn": 608, "mx": 643},
-        "Ilmu Kelautan": {"mn": 604, "mx": 639},
-        "Psikologi": {"mn": 713, "mx": 748},
-        "Hukum": {"mn": 704, "mx": 739},
-        "Akuntansi": {"mn": 699, "mx": 734},
-        "Manajemen": {"mn": 693, "mx": 728},
-        "Ilmu Komunikasi": {"mn": 690, "mx": 725},
-        "Ekonomi Pembangunan": {"mn": 684, "mx": 719},
-        "Hubungan Internasional": {"mn": 681, "mx": 716},
-        "Ilmu Administrasi Bisnis": {"mn": 677, "mx": 712},
-        "Ilmu Politik": {"mn": 672, "mx": 707},
-        "Sosiologi": {"mn": 666, "mx": 701},
-        "Ilmu Kesejahteraan Sosial": {"mn": 660, "mx": 695},
-        "Kriminologi": {"mn": 658, "mx": 693},
-        "Ilmu Pemerintahan": {"mn": 657, "mx": 692},
-        "Antropologi Sosial": {"mn": 651, "mx": 686},
-        "Ilmu Sejarah": {"mn": 645, "mx": 680},
-        "Sastra Inggris": {"mn": 642, "mx": 677},
-        "Sastra Indonesia": {"mn": 636, "mx": 671},
-        "Pendidikan Bahasa Inggris": {"mn": 633, "mx": 668},
-        "Pendidikan Ekonomi": {"mn": 629, "mx": 664},
-        "Pendidikan Sejarah": {"mn": 626, "mx": 661},
-        "Pendidikan Sosiologi": {"mn": 622, "mx": 657},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 620, "mx": 655},
-        "Keuangan dan Perbankan": {"mn": 617, "mx": 652},
-        "Bisnis Internasional": {"mn": 615, "mx": 650},
-        "Pariwisata": {"mn": 608, "mx": 643},
-        "Administrasi Negara": {"mn": 606, "mx": 641},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 602, "mx": 637},
-        "Sastra Arab": {"mn": 595, "mx": 630},
-        "Sastra Jawa": {"mn": 586, "mx": 621},
-        "Filsafat": {"mn": 581, "mx": 616},
-        "_default": {"mn": 653, "mx": 688},
-        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
-    },
-    "Universitas Brawijaya": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 707, "mx": 742},
-        "Teknik Informatika": {"mn": 698, "mx": 733},
-        "Farmasi": {"mn": 685, "mx": 720},
-        "Teknik Elektro": {"mn": 680, "mx": 715},
-        "Ilmu Komputer": {"mn": 676, "mx": 711},
-        "Teknik Kimia": {"mn": 671, "mx": 706},
-        "Teknik Mesin": {"mn": 667, "mx": 702},
-        "Teknik Sipil": {"mn": 663, "mx": 698},
-        "Kedokteran Gigi": {"mn": 661, "mx": 696},
-        "Bioteknologi": {"mn": 654, "mx": 689},
-        "Teknik Industri": {"mn": 652, "mx": 687},
-        "Statistika": {"mn": 647, "mx": 682},
-        "Matematika": {"mn": 643, "mx": 678},
-        "Fisika": {"mn": 638, "mx": 673},
-        "Kimia": {"mn": 634, "mx": 669},
-        "Biologi": {"mn": 632, "mx": 667},
-        "Teknik Lingkungan": {"mn": 627, "mx": 662},
-        "Teknik Geologi": {"mn": 626, "mx": 661},
-        "Teknik Perminyakan": {"mn": 623, "mx": 658},
-        "Arsitektur": {"mn": 622, "mx": 657},
-        "Perencanaan Wilayah dan Kota": {"mn": 619, "mx": 654},
-        "Ilmu Gizi": {"mn": 617, "mx": 652},
-        "Keperawatan": {"mn": 612, "mx": 647},
-        "Agroteknologi": {"mn": 605, "mx": 640},
-        "Agribisnis": {"mn": 604, "mx": 639},
-        "Kehutanan": {"mn": 599, "mx": 634},
-        "Ilmu Tanah": {"mn": 594, "mx": 629},
-        "Teknologi Pangan": {"mn": 592, "mx": 627},
-        "Peternakan": {"mn": 588, "mx": 623},
-        "Ilmu Kelautan": {"mn": 583, "mx": 618},
-        "Psikologi": {"mn": 689, "mx": 724},
-        "Hukum": {"mn": 680, "mx": 715},
-        "Akuntansi": {"mn": 676, "mx": 711},
-        "Manajemen": {"mn": 670, "mx": 705},
-        "Ilmu Komunikasi": {"mn": 667, "mx": 702},
-        "Ekonomi Pembangunan": {"mn": 661, "mx": 696},
-        "Hubungan Internasional": {"mn": 658, "mx": 693},
-        "Ilmu Administrasi Bisnis": {"mn": 654, "mx": 689},
-        "Ilmu Politik": {"mn": 649, "mx": 684},
-        "Sosiologi": {"mn": 643, "mx": 678},
-        "Ilmu Kesejahteraan Sosial": {"mn": 638, "mx": 673},
-        "Kriminologi": {"mn": 636, "mx": 671},
-        "Ilmu Pemerintahan": {"mn": 634, "mx": 669},
-        "Antropologi Sosial": {"mn": 629, "mx": 664},
-        "Ilmu Sejarah": {"mn": 623, "mx": 658},
-        "Sastra Inggris": {"mn": 620, "mx": 655},
-        "Sastra Indonesia": {"mn": 614, "mx": 649},
-        "Pendidikan Bahasa Inggris": {"mn": 612, "mx": 647},
-        "Pendidikan Ekonomi": {"mn": 608, "mx": 643},
-        "Pendidikan Sejarah": {"mn": 605, "mx": 640},
-        "Pendidikan Sosiologi": {"mn": 601, "mx": 636},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 599, "mx": 634},
-        "Keuangan dan Perbankan": {"mn": 597, "mx": 632},
-        "Bisnis Internasional": {"mn": 594, "mx": 629},
-        "Pariwisata": {"mn": 588, "mx": 623},
-        "Administrasi Negara": {"mn": 585, "mx": 620},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 582, "mx": 617},
-        "Sastra Arab": {"mn": 575, "mx": 610},
-        "Sastra Jawa": {"mn": 566, "mx": 601},
-        "Filsafat": {"mn": 561, "mx": 596},
-        "_default": {"mn": 631, "mx": 666},
-        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
-    },
-    "Universitas Sebelas Maret": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 698, "mx": 733},
-        "Teknik Informatika": {"mn": 690, "mx": 725},
-        "Farmasi": {"mn": 677, "mx": 712},
-        "Teknik Elektro": {"mn": 672, "mx": 707},
-        "Ilmu Komputer": {"mn": 668, "mx": 703},
-        "Teknik Kimia": {"mn": 664, "mx": 699},
-        "Teknik Mesin": {"mn": 659, "mx": 694},
-        "Teknik Sipil": {"mn": 655, "mx": 690},
-        "Kedokteran Gigi": {"mn": 653, "mx": 688},
-        "Bioteknologi": {"mn": 646, "mx": 681},
-        "Teknik Industri": {"mn": 644, "mx": 679},
-        "Statistika": {"mn": 639, "mx": 674},
-        "Matematika": {"mn": 636, "mx": 671},
-        "Fisika": {"mn": 631, "mx": 666},
-        "Kimia": {"mn": 627, "mx": 662},
-        "Biologi": {"mn": 624, "mx": 659},
-        "Teknik Lingkungan": {"mn": 620, "mx": 655},
-        "Teknik Geologi": {"mn": 618, "mx": 653},
-        "Teknik Perminyakan": {"mn": 616, "mx": 651},
-        "Arsitektur": {"mn": 615, "mx": 650},
-        "Perencanaan Wilayah dan Kota": {"mn": 611, "mx": 646},
-        "Ilmu Gizi": {"mn": 610, "mx": 645},
-        "Keperawatan": {"mn": 604, "mx": 639},
-        "Agroteknologi": {"mn": 598, "mx": 633},
-        "Agribisnis": {"mn": 597, "mx": 632},
-        "Kehutanan": {"mn": 592, "mx": 627},
-        "Ilmu Tanah": {"mn": 587, "mx": 622},
-        "Teknologi Pangan": {"mn": 585, "mx": 620},
-        "Peternakan": {"mn": 581, "mx": 616},
-        "Ilmu Kelautan": {"mn": 577, "mx": 612},
-        "Psikologi": {"mn": 681, "mx": 716},
-        "Hukum": {"mn": 672, "mx": 707},
-        "Akuntansi": {"mn": 668, "mx": 703},
-        "Manajemen": {"mn": 662, "mx": 697},
-        "Ilmu Komunikasi": {"mn": 659, "mx": 694},
-        "Ekonomi Pembangunan": {"mn": 653, "mx": 688},
-        "Hubungan Internasional": {"mn": 651, "mx": 686},
-        "Ilmu Administrasi Bisnis": {"mn": 646, "mx": 681},
-        "Ilmu Politik": {"mn": 642, "mx": 677},
-        "Sosiologi": {"mn": 636, "mx": 671},
-        "Ilmu Kesejahteraan Sosial": {"mn": 631, "mx": 666},
-        "Kriminologi": {"mn": 629, "mx": 664},
-        "Ilmu Pemerintahan": {"mn": 627, "mx": 662},
-        "Antropologi Sosial": {"mn": 622, "mx": 657},
-        "Ilmu Sejarah": {"mn": 616, "mx": 651},
-        "Sastra Inggris": {"mn": 613, "mx": 648},
-        "Sastra Indonesia": {"mn": 607, "mx": 642},
-        "Pendidikan Bahasa Inggris": {"mn": 604, "mx": 639},
-        "Pendidikan Ekonomi": {"mn": 601, "mx": 636},
-        "Pendidikan Sejarah": {"mn": 597, "mx": 632},
-        "Pendidikan Sosiologi": {"mn": 594, "mx": 629},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 592, "mx": 627},
-        "Keuangan dan Perbankan": {"mn": 590, "mx": 625},
-        "Bisnis Internasional": {"mn": 587, "mx": 622},
-        "Pariwisata": {"mn": 581, "mx": 616},
-        "Administrasi Negara": {"mn": 578, "mx": 613},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 575, "mx": 610},
-        "Sastra Arab": {"mn": 568, "mx": 603},
-        "Sastra Jawa": {"mn": 559, "mx": 594},
-        "Filsafat": {"mn": 555, "mx": 590},
-        "_default": {"mn": 623, "mx": 658},
-        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
-    },
-    "Universitas Hasanuddin": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 690, "mx": 725},
-        "Teknik Informatika": {"mn": 682, "mx": 717},
-        "Farmasi": {"mn": 669, "mx": 704},
-        "Teknik Elektro": {"mn": 664, "mx": 699},
-        "Ilmu Komputer": {"mn": 660, "mx": 695},
-        "Teknik Kimia": {"mn": 656, "mx": 691},
-        "Teknik Mesin": {"mn": 651, "mx": 686},
-        "Teknik Sipil": {"mn": 647, "mx": 682},
-        "Kedokteran Gigi": {"mn": 645, "mx": 680},
-        "Bioteknologi": {"mn": 639, "mx": 674},
-        "Teknik Industri": {"mn": 637, "mx": 672},
-        "Statistika": {"mn": 632, "mx": 667},
-        "Matematika": {"mn": 628, "mx": 663},
-        "Fisika": {"mn": 623, "mx": 658},
-        "Kimia": {"mn": 620, "mx": 655},
-        "Biologi": {"mn": 617, "mx": 652},
-        "Teknik Lingkungan": {"mn": 613, "mx": 648},
-        "Teknik Geologi": {"mn": 611, "mx": 646},
-        "Teknik Perminyakan": {"mn": 609, "mx": 644},
-        "Arsitektur": {"mn": 608, "mx": 643},
-        "Perencanaan Wilayah dan Kota": {"mn": 604, "mx": 639},
-        "Ilmu Gizi": {"mn": 602, "mx": 637},
-        "Keperawatan": {"mn": 597, "mx": 632},
-        "Agroteknologi": {"mn": 591, "mx": 626},
-        "Agribisnis": {"mn": 590, "mx": 625},
-        "Kehutanan": {"mn": 585, "mx": 620},
-        "Ilmu Tanah": {"mn": 580, "mx": 615},
-        "Teknologi Pangan": {"mn": 578, "mx": 613},
-        "Peternakan": {"mn": 574, "mx": 609},
-        "Ilmu Kelautan": {"mn": 570, "mx": 605},
-        "Psikologi": {"mn": 673, "mx": 708},
-        "Hukum": {"mn": 664, "mx": 699},
-        "Akuntansi": {"mn": 660, "mx": 695},
-        "Manajemen": {"mn": 654, "mx": 689},
-        "Ilmu Komunikasi": {"mn": 651, "mx": 686},
-        "Ekonomi Pembangunan": {"mn": 645, "mx": 680},
-        "Hubungan Internasional": {"mn": 643, "mx": 678},
-        "Ilmu Administrasi Bisnis": {"mn": 639, "mx": 674},
-        "Ilmu Politik": {"mn": 634, "mx": 669},
-        "Sosiologi": {"mn": 628, "mx": 663},
-        "Ilmu Kesejahteraan Sosial": {"mn": 623, "mx": 658},
-        "Kriminologi": {"mn": 621, "mx": 656},
-        "Ilmu Pemerintahan": {"mn": 620, "mx": 655},
-        "Antropologi Sosial": {"mn": 615, "mx": 650},
-        "Ilmu Sejarah": {"mn": 609, "mx": 644},
-        "Sastra Inggris": {"mn": 606, "mx": 641},
-        "Sastra Indonesia": {"mn": 600, "mx": 635},
-        "Pendidikan Bahasa Inggris": {"mn": 597, "mx": 632},
-        "Pendidikan Ekonomi": {"mn": 594, "mx": 629},
-        "Pendidikan Sejarah": {"mn": 590, "mx": 625},
-        "Pendidikan Sosiologi": {"mn": 587, "mx": 622},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 585, "mx": 620},
-        "Keuangan dan Perbankan": {"mn": 583, "mx": 618},
-        "Bisnis Internasional": {"mn": 580, "mx": 615},
-        "Pariwisata": {"mn": 574, "mx": 609},
-        "Administrasi Negara": {"mn": 572, "mx": 607},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 568, "mx": 603},
-        "Sastra Arab": {"mn": 561, "mx": 596},
-        "Sastra Jawa": {"mn": 553, "mx": 588},
-        "Filsafat": {"mn": 548, "mx": 583},
-        "_default": {"mn": 616, "mx": 651},
-        "_klaster": 2, "_lbl": "🔷 Klaster 2 — Menengah Atas"
-    },
-    "Universitas Pendidikan Indonesia": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 657, "mx": 692},
-        "Teknik Informatika": {"mn": 649, "mx": 684},
-        "Farmasi": {"mn": 637, "mx": 672},
-        "Teknik Elektro": {"mn": 633, "mx": 668},
-        "Ilmu Komputer": {"mn": 629, "mx": 664},
-        "Teknik Kimia": {"mn": 625, "mx": 660},
-        "Teknik Mesin": {"mn": 621, "mx": 656},
-        "Teknik Sipil": {"mn": 616, "mx": 651},
-        "Kedokteran Gigi": {"mn": 615, "mx": 650},
-        "Bioteknologi": {"mn": 608, "mx": 643},
-        "Teknik Industri": {"mn": 607, "mx": 642},
-        "Statistika": {"mn": 602, "mx": 637},
-        "Matematika": {"mn": 598, "mx": 633},
-        "Fisika": {"mn": 593, "mx": 628},
-        "Kimia": {"mn": 590, "mx": 625},
-        "Biologi": {"mn": 588, "mx": 623},
-        "Teknik Lingkungan": {"mn": 584, "mx": 619},
-        "Teknik Geologi": {"mn": 582, "mx": 617},
-        "Teknik Perminyakan": {"mn": 579, "mx": 614},
-        "Arsitektur": {"mn": 579, "mx": 614},
-        "Perencanaan Wilayah dan Kota": {"mn": 575, "mx": 610},
-        "Ilmu Gizi": {"mn": 574, "mx": 609},
-        "Keperawatan": {"mn": 569, "mx": 604},
-        "Agroteknologi": {"mn": 563, "mx": 598},
-        "Agribisnis": {"mn": 561, "mx": 596},
-        "Kehutanan": {"mn": 557, "mx": 592},
-        "Ilmu Tanah": {"mn": 552, "mx": 587},
-        "Teknologi Pangan": {"mn": 551, "mx": 586},
-        "Peternakan": {"mn": 547, "mx": 582},
-        "Ilmu Kelautan": {"mn": 543, "mx": 578},
-        "Psikologi": {"mn": 641, "mx": 676},
-        "Hukum": {"mn": 633, "mx": 668},
-        "Akuntansi": {"mn": 629, "mx": 664},
-        "Manajemen": {"mn": 623, "mx": 658},
-        "Ilmu Komunikasi": {"mn": 621, "mx": 656},
-        "Ekonomi Pembangunan": {"mn": 615, "mx": 650},
-        "Hubungan Internasional": {"mn": 612, "mx": 647},
-        "Ilmu Administrasi Bisnis": {"mn": 608, "mx": 643},
-        "Ilmu Politik": {"mn": 604, "mx": 639},
-        "Sosiologi": {"mn": 598, "mx": 633},
-        "Ilmu Kesejahteraan Sosial": {"mn": 593, "mx": 628},
-        "Kriminologi": {"mn": 592, "mx": 627},
-        "Ilmu Pemerintahan": {"mn": 590, "mx": 625},
-        "Antropologi Sosial": {"mn": 585, "mx": 620},
-        "Ilmu Sejarah": {"mn": 579, "mx": 614},
-        "Sastra Inggris": {"mn": 577, "mx": 612},
-        "Sastra Indonesia": {"mn": 571, "mx": 606},
-        "Pendidikan Bahasa Inggris": {"mn": 569, "mx": 604},
-        "Pendidikan Ekonomi": {"mn": 566, "mx": 601},
-        "Pendidikan Sejarah": {"mn": 562, "mx": 597},
-        "Pendidikan Sosiologi": {"mn": 559, "mx": 594},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 557, "mx": 592},
-        "Keuangan dan Perbankan": {"mn": 555, "mx": 590},
-        "Bisnis Internasional": {"mn": 552, "mx": 587},
-        "Pariwisata": {"mn": 547, "mx": 582},
-        "Administrasi Negara": {"mn": 544, "mx": 579},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 541, "mx": 576},
-        "Sastra Arab": {"mn": 534, "mx": 569},
-        "Sastra Jawa": {"mn": 526, "mx": 561},
-        "Filsafat": {"mn": 522, "mx": 557},
-        "_default": {"mn": 586, "mx": 621},
-        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
-    },
-    "Universitas Sumatera Utara": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 657, "mx": 692},
-        "Teknik Informatika": {"mn": 649, "mx": 684},
-        "Farmasi": {"mn": 637, "mx": 672},
-        "Teknik Elektro": {"mn": 633, "mx": 668},
-        "Ilmu Komputer": {"mn": 629, "mx": 664},
-        "Teknik Kimia": {"mn": 625, "mx": 660},
-        "Teknik Mesin": {"mn": 621, "mx": 656},
-        "Teknik Sipil": {"mn": 616, "mx": 651},
-        "Kedokteran Gigi": {"mn": 615, "mx": 650},
-        "Bioteknologi": {"mn": 608, "mx": 643},
-        "Teknik Industri": {"mn": 607, "mx": 642},
-        "Statistika": {"mn": 602, "mx": 637},
-        "Matematika": {"mn": 598, "mx": 633},
-        "Fisika": {"mn": 593, "mx": 628},
-        "Kimia": {"mn": 590, "mx": 625},
-        "Biologi": {"mn": 588, "mx": 623},
-        "Teknik Lingkungan": {"mn": 584, "mx": 619},
-        "Teknik Geologi": {"mn": 582, "mx": 617},
-        "Teknik Perminyakan": {"mn": 579, "mx": 614},
-        "Arsitektur": {"mn": 579, "mx": 614},
-        "Perencanaan Wilayah dan Kota": {"mn": 575, "mx": 610},
-        "Ilmu Gizi": {"mn": 574, "mx": 609},
-        "Keperawatan": {"mn": 569, "mx": 604},
-        "Agroteknologi": {"mn": 563, "mx": 598},
-        "Agribisnis": {"mn": 561, "mx": 596},
-        "Kehutanan": {"mn": 557, "mx": 592},
-        "Ilmu Tanah": {"mn": 552, "mx": 587},
-        "Teknologi Pangan": {"mn": 551, "mx": 586},
-        "Peternakan": {"mn": 547, "mx": 582},
-        "Ilmu Kelautan": {"mn": 543, "mx": 578},
-        "Psikologi": {"mn": 641, "mx": 676},
-        "Hukum": {"mn": 633, "mx": 668},
-        "Akuntansi": {"mn": 629, "mx": 664},
-        "Manajemen": {"mn": 623, "mx": 658},
-        "Ilmu Komunikasi": {"mn": 621, "mx": 656},
-        "Ekonomi Pembangunan": {"mn": 615, "mx": 650},
-        "Hubungan Internasional": {"mn": 612, "mx": 647},
-        "Ilmu Administrasi Bisnis": {"mn": 608, "mx": 643},
-        "Ilmu Politik": {"mn": 604, "mx": 639},
-        "Sosiologi": {"mn": 598, "mx": 633},
-        "Ilmu Kesejahteraan Sosial": {"mn": 593, "mx": 628},
-        "Kriminologi": {"mn": 592, "mx": 627},
-        "Ilmu Pemerintahan": {"mn": 590, "mx": 625},
-        "Antropologi Sosial": {"mn": 585, "mx": 620},
-        "Ilmu Sejarah": {"mn": 579, "mx": 614},
-        "Sastra Inggris": {"mn": 577, "mx": 612},
-        "Sastra Indonesia": {"mn": 571, "mx": 606},
-        "Pendidikan Bahasa Inggris": {"mn": 569, "mx": 604},
-        "Pendidikan Ekonomi": {"mn": 566, "mx": 601},
-        "Pendidikan Sejarah": {"mn": 562, "mx": 597},
-        "Pendidikan Sosiologi": {"mn": 559, "mx": 594},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 557, "mx": 592},
-        "Keuangan dan Perbankan": {"mn": 555, "mx": 590},
-        "Bisnis Internasional": {"mn": 552, "mx": 587},
-        "Pariwisata": {"mn": 547, "mx": 582},
-        "Administrasi Negara": {"mn": 544, "mx": 579},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 541, "mx": 576},
-        "Sastra Arab": {"mn": 534, "mx": 569},
-        "Sastra Jawa": {"mn": 526, "mx": 561},
-        "Filsafat": {"mn": 522, "mx": 557},
-        "_default": {"mn": 586, "mx": 621},
-        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
-    },
-    "Universitas Negeri Yogyakarta": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 657, "mx": 692},
-        "Teknik Informatika": {"mn": 649, "mx": 684},
-        "Farmasi": {"mn": 637, "mx": 672},
-        "Teknik Elektro": {"mn": 633, "mx": 668},
-        "Ilmu Komputer": {"mn": 629, "mx": 664},
-        "Teknik Kimia": {"mn": 625, "mx": 660},
-        "Teknik Mesin": {"mn": 621, "mx": 656},
-        "Teknik Sipil": {"mn": 616, "mx": 651},
-        "Kedokteran Gigi": {"mn": 615, "mx": 650},
-        "Bioteknologi": {"mn": 608, "mx": 643},
-        "Teknik Industri": {"mn": 607, "mx": 642},
-        "Statistika": {"mn": 602, "mx": 637},
-        "Matematika": {"mn": 598, "mx": 633},
-        "Fisika": {"mn": 593, "mx": 628},
-        "Kimia": {"mn": 590, "mx": 625},
-        "Biologi": {"mn": 588, "mx": 623},
-        "Teknik Lingkungan": {"mn": 584, "mx": 619},
-        "Teknik Geologi": {"mn": 582, "mx": 617},
-        "Teknik Perminyakan": {"mn": 579, "mx": 614},
-        "Arsitektur": {"mn": 579, "mx": 614},
-        "Perencanaan Wilayah dan Kota": {"mn": 575, "mx": 610},
-        "Ilmu Gizi": {"mn": 574, "mx": 609},
-        "Keperawatan": {"mn": 569, "mx": 604},
-        "Agroteknologi": {"mn": 563, "mx": 598},
-        "Agribisnis": {"mn": 561, "mx": 596},
-        "Kehutanan": {"mn": 557, "mx": 592},
-        "Ilmu Tanah": {"mn": 552, "mx": 587},
-        "Teknologi Pangan": {"mn": 551, "mx": 586},
-        "Peternakan": {"mn": 547, "mx": 582},
-        "Ilmu Kelautan": {"mn": 543, "mx": 578},
-        "Psikologi": {"mn": 641, "mx": 676},
-        "Hukum": {"mn": 633, "mx": 668},
-        "Akuntansi": {"mn": 629, "mx": 664},
-        "Manajemen": {"mn": 623, "mx": 658},
-        "Ilmu Komunikasi": {"mn": 621, "mx": 656},
-        "Ekonomi Pembangunan": {"mn": 615, "mx": 650},
-        "Hubungan Internasional": {"mn": 612, "mx": 647},
-        "Ilmu Administrasi Bisnis": {"mn": 608, "mx": 643},
-        "Ilmu Politik": {"mn": 604, "mx": 639},
-        "Sosiologi": {"mn": 598, "mx": 633},
-        "Ilmu Kesejahteraan Sosial": {"mn": 593, "mx": 628},
-        "Kriminologi": {"mn": 592, "mx": 627},
-        "Ilmu Pemerintahan": {"mn": 590, "mx": 625},
-        "Antropologi Sosial": {"mn": 585, "mx": 620},
-        "Ilmu Sejarah": {"mn": 579, "mx": 614},
-        "Sastra Inggris": {"mn": 577, "mx": 612},
-        "Sastra Indonesia": {"mn": 571, "mx": 606},
-        "Pendidikan Bahasa Inggris": {"mn": 569, "mx": 604},
-        "Pendidikan Ekonomi": {"mn": 566, "mx": 601},
-        "Pendidikan Sejarah": {"mn": 562, "mx": 597},
-        "Pendidikan Sosiologi": {"mn": 559, "mx": 594},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 557, "mx": 592},
-        "Keuangan dan Perbankan": {"mn": 555, "mx": 590},
-        "Bisnis Internasional": {"mn": 552, "mx": 587},
-        "Pariwisata": {"mn": 547, "mx": 582},
-        "Administrasi Negara": {"mn": 544, "mx": 579},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 541, "mx": 576},
-        "Sastra Arab": {"mn": 534, "mx": 569},
-        "Sastra Jawa": {"mn": 526, "mx": 561},
-        "Filsafat": {"mn": 522, "mx": 557},
-        "_default": {"mn": 586, "mx": 621},
-        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
-    },
-    "Universitas Negeri Malang": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 641, "mx": 676},
-        "Teknik Informatika": {"mn": 633, "mx": 668},
-        "Farmasi": {"mn": 621, "mx": 656},
-        "Teknik Elektro": {"mn": 617, "mx": 652},
-        "Ilmu Komputer": {"mn": 613, "mx": 648},
-        "Teknik Kimia": {"mn": 609, "mx": 644},
-        "Teknik Mesin": {"mn": 605, "mx": 640},
-        "Teknik Sipil": {"mn": 601, "mx": 636},
-        "Kedokteran Gigi": {"mn": 599, "mx": 634},
-        "Bioteknologi": {"mn": 593, "mx": 628},
-        "Teknik Industri": {"mn": 591, "mx": 626},
-        "Statistika": {"mn": 587, "mx": 622},
-        "Matematika": {"mn": 583, "mx": 618},
-        "Fisika": {"mn": 579, "mx": 614},
-        "Kimia": {"mn": 575, "mx": 610},
-        "Biologi": {"mn": 573, "mx": 608},
-        "Teknik Lingkungan": {"mn": 569, "mx": 604},
-        "Teknik Geologi": {"mn": 567, "mx": 602},
-        "Teknik Perminyakan": {"mn": 565, "mx": 600},
-        "Arsitektur": {"mn": 564, "mx": 599},
-        "Perencanaan Wilayah dan Kota": {"mn": 561, "mx": 596},
-        "Ilmu Gizi": {"mn": 559, "mx": 594},
-        "Keperawatan": {"mn": 555, "mx": 590},
-        "Agroteknologi": {"mn": 549, "mx": 584},
-        "Agribisnis": {"mn": 547, "mx": 582},
-        "Kehutanan": {"mn": 543, "mx": 578},
-        "Ilmu Tanah": {"mn": 539, "mx": 574},
-        "Teknologi Pangan": {"mn": 537, "mx": 572},
-        "Peternakan": {"mn": 533, "mx": 568},
-        "Ilmu Kelautan": {"mn": 529, "mx": 564},
-        "Psikologi": {"mn": 625, "mx": 660},
-        "Hukum": {"mn": 617, "mx": 652},
-        "Akuntansi": {"mn": 613, "mx": 648},
-        "Manajemen": {"mn": 607, "mx": 642},
-        "Ilmu Komunikasi": {"mn": 605, "mx": 640},
-        "Ekonomi Pembangunan": {"mn": 599, "mx": 634},
-        "Hubungan Internasional": {"mn": 597, "mx": 632},
-        "Ilmu Administrasi Bisnis": {"mn": 593, "mx": 628},
-        "Ilmu Politik": {"mn": 589, "mx": 624},
-        "Sosiologi": {"mn": 583, "mx": 618},
-        "Ilmu Kesejahteraan Sosial": {"mn": 579, "mx": 614},
-        "Kriminologi": {"mn": 577, "mx": 612},
-        "Ilmu Pemerintahan": {"mn": 575, "mx": 610},
-        "Antropologi Sosial": {"mn": 571, "mx": 606},
-        "Ilmu Sejarah": {"mn": 565, "mx": 600},
-        "Sastra Inggris": {"mn": 563, "mx": 598},
-        "Sastra Indonesia": {"mn": 557, "mx": 592},
-        "Pendidikan Bahasa Inggris": {"mn": 555, "mx": 590},
-        "Pendidikan Ekonomi": {"mn": 551, "mx": 586},
-        "Pendidikan Sejarah": {"mn": 548, "mx": 583},
-        "Pendidikan Sosiologi": {"mn": 545, "mx": 580},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 543, "mx": 578},
-        "Keuangan dan Perbankan": {"mn": 541, "mx": 576},
-        "Bisnis Internasional": {"mn": 539, "mx": 574},
-        "Pariwisata": {"mn": 533, "mx": 568},
-        "Administrasi Negara": {"mn": 531, "mx": 566},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 527, "mx": 562},
-        "Sastra Arab": {"mn": 521, "mx": 556},
-        "Sastra Jawa": {"mn": 513, "mx": 548},
-        "Filsafat": {"mn": 509, "mx": 544},
-        "_default": {"mn": 572, "mx": 607},
-        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
-    },
-    "Universitas Lampung": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 633, "mx": 668},
-        "Teknik Informatika": {"mn": 625, "mx": 660},
-        "Farmasi": {"mn": 613, "mx": 648},
-        "Teknik Elektro": {"mn": 609, "mx": 644},
-        "Ilmu Komputer": {"mn": 605, "mx": 640},
-        "Teknik Kimia": {"mn": 601, "mx": 636},
-        "Teknik Mesin": {"mn": 597, "mx": 632},
-        "Teknik Sipil": {"mn": 593, "mx": 628},
-        "Kedokteran Gigi": {"mn": 592, "mx": 627},
-        "Bioteknologi": {"mn": 585, "mx": 620},
-        "Teknik Industri": {"mn": 584, "mx": 619},
-        "Statistika": {"mn": 579, "mx": 614},
-        "Matematika": {"mn": 576, "mx": 611},
-        "Fisika": {"mn": 571, "mx": 606},
-        "Kimia": {"mn": 568, "mx": 603},
-        "Biologi": {"mn": 566, "mx": 601},
-        "Teknik Lingkungan": {"mn": 562, "mx": 597},
-        "Teknik Geologi": {"mn": 560, "mx": 595},
-        "Teknik Perminyakan": {"mn": 558, "mx": 593},
-        "Arsitektur": {"mn": 557, "mx": 592},
-        "Perencanaan Wilayah dan Kota": {"mn": 554, "mx": 589},
-        "Ilmu Gizi": {"mn": 552, "mx": 587},
-        "Keperawatan": {"mn": 547, "mx": 582},
-        "Agroteknologi": {"mn": 542, "mx": 577},
-        "Agribisnis": {"mn": 540, "mx": 575},
-        "Kehutanan": {"mn": 536, "mx": 571},
-        "Ilmu Tanah": {"mn": 532, "mx": 567},
-        "Teknologi Pangan": {"mn": 530, "mx": 565},
-        "Peternakan": {"mn": 526, "mx": 561},
-        "Ilmu Kelautan": {"mn": 522, "mx": 557},
-        "Psikologi": {"mn": 617, "mx": 652},
-        "Hukum": {"mn": 609, "mx": 644},
-        "Akuntansi": {"mn": 605, "mx": 640},
-        "Manajemen": {"mn": 600, "mx": 635},
-        "Ilmu Komunikasi": {"mn": 597, "mx": 632},
-        "Ekonomi Pembangunan": {"mn": 592, "mx": 627},
-        "Hubungan Internasional": {"mn": 589, "mx": 624},
-        "Ilmu Administrasi Bisnis": {"mn": 585, "mx": 620},
-        "Ilmu Politik": {"mn": 581, "mx": 616},
-        "Sosiologi": {"mn": 576, "mx": 611},
-        "Ilmu Kesejahteraan Sosial": {"mn": 571, "mx": 606},
-        "Kriminologi": {"mn": 570, "mx": 605},
-        "Ilmu Pemerintahan": {"mn": 568, "mx": 603},
-        "Antropologi Sosial": {"mn": 563, "mx": 598},
-        "Ilmu Sejarah": {"mn": 558, "mx": 593},
-        "Sastra Inggris": {"mn": 555, "mx": 590},
-        "Sastra Indonesia": {"mn": 550, "mx": 585},
-        "Pendidikan Bahasa Inggris": {"mn": 547, "mx": 582},
-        "Pendidikan Ekonomi": {"mn": 544, "mx": 579},
-        "Pendidikan Sejarah": {"mn": 541, "mx": 576},
-        "Pendidikan Sosiologi": {"mn": 538, "mx": 573},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 536, "mx": 571},
-        "Keuangan dan Perbankan": {"mn": 534, "mx": 569},
-        "Bisnis Internasional": {"mn": 532, "mx": 567},
-        "Pariwisata": {"mn": 526, "mx": 561},
-        "Administrasi Negara": {"mn": 524, "mx": 559},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 521, "mx": 556},
-        "Sastra Arab": {"mn": 514, "mx": 549},
-        "Sastra Jawa": {"mn": 506, "mx": 541},
-        "Filsafat": {"mn": 502, "mx": 537},
-        "_default": {"mn": 564, "mx": 599},
-        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
-    },
-    "Universitas Andalas": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 649, "mx": 684},
-        "Teknik Informatika": {"mn": 641, "mx": 676},
-        "Farmasi": {"mn": 629, "mx": 664},
-        "Teknik Elektro": {"mn": 625, "mx": 660},
-        "Ilmu Komputer": {"mn": 621, "mx": 656},
-        "Teknik Kimia": {"mn": 617, "mx": 652},
-        "Teknik Mesin": {"mn": 613, "mx": 648},
-        "Teknik Sipil": {"mn": 609, "mx": 644},
-        "Kedokteran Gigi": {"mn": 607, "mx": 642},
-        "Bioteknologi": {"mn": 601, "mx": 636},
-        "Teknik Industri": {"mn": 599, "mx": 634},
-        "Statistika": {"mn": 594, "mx": 629},
-        "Matematika": {"mn": 591, "mx": 626},
-        "Fisika": {"mn": 586, "mx": 621},
-        "Kimia": {"mn": 583, "mx": 618},
-        "Biologi": {"mn": 580, "mx": 615},
-        "Teknik Lingkungan": {"mn": 576, "mx": 611},
-        "Teknik Geologi": {"mn": 575, "mx": 610},
-        "Teknik Perminyakan": {"mn": 572, "mx": 607},
-        "Arsitektur": {"mn": 571, "mx": 606},
-        "Perencanaan Wilayah dan Kota": {"mn": 568, "mx": 603},
-        "Ilmu Gizi": {"mn": 567, "mx": 602},
-        "Keperawatan": {"mn": 562, "mx": 597},
-        "Agroteknologi": {"mn": 556, "mx": 591},
-        "Agribisnis": {"mn": 554, "mx": 589},
-        "Kehutanan": {"mn": 550, "mx": 585},
-        "Ilmu Tanah": {"mn": 546, "mx": 581},
-        "Teknologi Pangan": {"mn": 544, "mx": 579},
-        "Peternakan": {"mn": 540, "mx": 575},
-        "Ilmu Kelautan": {"mn": 536, "mx": 571},
-        "Psikologi": {"mn": 633, "mx": 668},
-        "Hukum": {"mn": 625, "mx": 660},
-        "Akuntansi": {"mn": 621, "mx": 656},
-        "Manajemen": {"mn": 615, "mx": 650},
-        "Ilmu Komunikasi": {"mn": 613, "mx": 648},
-        "Ekonomi Pembangunan": {"mn": 607, "mx": 642},
-        "Hubungan Internasional": {"mn": 605, "mx": 640},
-        "Ilmu Administrasi Bisnis": {"mn": 601, "mx": 636},
-        "Ilmu Politik": {"mn": 597, "mx": 632},
-        "Sosiologi": {"mn": 591, "mx": 626},
-        "Ilmu Kesejahteraan Sosial": {"mn": 586, "mx": 621},
-        "Kriminologi": {"mn": 584, "mx": 619},
-        "Ilmu Pemerintahan": {"mn": 583, "mx": 618},
-        "Antropologi Sosial": {"mn": 578, "mx": 613},
-        "Ilmu Sejarah": {"mn": 572, "mx": 607},
-        "Sastra Inggris": {"mn": 570, "mx": 605},
-        "Sastra Indonesia": {"mn": 564, "mx": 599},
-        "Pendidikan Bahasa Inggris": {"mn": 562, "mx": 597},
-        "Pendidikan Ekonomi": {"mn": 558, "mx": 593},
-        "Pendidikan Sejarah": {"mn": 555, "mx": 590},
-        "Pendidikan Sosiologi": {"mn": 552, "mx": 587},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 550, "mx": 585},
-        "Keuangan dan Perbankan": {"mn": 548, "mx": 583},
-        "Bisnis Internasional": {"mn": 546, "mx": 581},
-        "Pariwisata": {"mn": 540, "mx": 575},
-        "Administrasi Negara": {"mn": 537, "mx": 572},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 534, "mx": 569},
-        "Sastra Arab": {"mn": 528, "mx": 563},
-        "Sastra Jawa": {"mn": 520, "mx": 555},
-        "Filsafat": {"mn": 516, "mx": 551},
-        "_default": {"mn": 579, "mx": 614},
-        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
-    },
-    "Universitas Negeri Semarang": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 641, "mx": 676},
-        "Teknik Informatika": {"mn": 633, "mx": 668},
-        "Farmasi": {"mn": 621, "mx": 656},
-        "Teknik Elektro": {"mn": 617, "mx": 652},
-        "Ilmu Komputer": {"mn": 613, "mx": 648},
-        "Teknik Kimia": {"mn": 609, "mx": 644},
-        "Teknik Mesin": {"mn": 605, "mx": 640},
-        "Teknik Sipil": {"mn": 601, "mx": 636},
-        "Kedokteran Gigi": {"mn": 599, "mx": 634},
-        "Bioteknologi": {"mn": 593, "mx": 628},
-        "Teknik Industri": {"mn": 591, "mx": 626},
-        "Statistika": {"mn": 587, "mx": 622},
-        "Matematika": {"mn": 583, "mx": 618},
-        "Fisika": {"mn": 579, "mx": 614},
-        "Kimia": {"mn": 575, "mx": 610},
-        "Biologi": {"mn": 573, "mx": 608},
-        "Teknik Lingkungan": {"mn": 569, "mx": 604},
-        "Teknik Geologi": {"mn": 567, "mx": 602},
-        "Teknik Perminyakan": {"mn": 565, "mx": 600},
-        "Arsitektur": {"mn": 564, "mx": 599},
-        "Perencanaan Wilayah dan Kota": {"mn": 561, "mx": 596},
-        "Ilmu Gizi": {"mn": 559, "mx": 594},
-        "Keperawatan": {"mn": 555, "mx": 590},
-        "Agroteknologi": {"mn": 549, "mx": 584},
-        "Agribisnis": {"mn": 547, "mx": 582},
-        "Kehutanan": {"mn": 543, "mx": 578},
-        "Ilmu Tanah": {"mn": 539, "mx": 574},
-        "Teknologi Pangan": {"mn": 537, "mx": 572},
-        "Peternakan": {"mn": 533, "mx": 568},
-        "Ilmu Kelautan": {"mn": 529, "mx": 564},
-        "Psikologi": {"mn": 625, "mx": 660},
-        "Hukum": {"mn": 617, "mx": 652},
-        "Akuntansi": {"mn": 613, "mx": 648},
-        "Manajemen": {"mn": 607, "mx": 642},
-        "Ilmu Komunikasi": {"mn": 605, "mx": 640},
-        "Ekonomi Pembangunan": {"mn": 599, "mx": 634},
-        "Hubungan Internasional": {"mn": 597, "mx": 632},
-        "Ilmu Administrasi Bisnis": {"mn": 593, "mx": 628},
-        "Ilmu Politik": {"mn": 589, "mx": 624},
-        "Sosiologi": {"mn": 583, "mx": 618},
-        "Ilmu Kesejahteraan Sosial": {"mn": 579, "mx": 614},
-        "Kriminologi": {"mn": 577, "mx": 612},
-        "Ilmu Pemerintahan": {"mn": 575, "mx": 610},
-        "Antropologi Sosial": {"mn": 571, "mx": 606},
-        "Ilmu Sejarah": {"mn": 565, "mx": 600},
-        "Sastra Inggris": {"mn": 563, "mx": 598},
-        "Sastra Indonesia": {"mn": 557, "mx": 592},
-        "Pendidikan Bahasa Inggris": {"mn": 555, "mx": 590},
-        "Pendidikan Ekonomi": {"mn": 551, "mx": 586},
-        "Pendidikan Sejarah": {"mn": 548, "mx": 583},
-        "Pendidikan Sosiologi": {"mn": 545, "mx": 580},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 543, "mx": 578},
-        "Keuangan dan Perbankan": {"mn": 541, "mx": 576},
-        "Bisnis Internasional": {"mn": 539, "mx": 574},
-        "Pariwisata": {"mn": 533, "mx": 568},
-        "Administrasi Negara": {"mn": 531, "mx": 566},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 527, "mx": 562},
-        "Sastra Arab": {"mn": 521, "mx": 556},
-        "Sastra Jawa": {"mn": 513, "mx": 548},
-        "Filsafat": {"mn": 509, "mx": 544},
-        "_default": {"mn": 572, "mx": 607},
-        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
-    },
-    "Universitas Syiah Kuala": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 633, "mx": 668},
-        "Teknik Informatika": {"mn": 625, "mx": 660},
-        "Farmasi": {"mn": 613, "mx": 648},
-        "Teknik Elektro": {"mn": 609, "mx": 644},
-        "Ilmu Komputer": {"mn": 605, "mx": 640},
-        "Teknik Kimia": {"mn": 601, "mx": 636},
-        "Teknik Mesin": {"mn": 597, "mx": 632},
-        "Teknik Sipil": {"mn": 593, "mx": 628},
-        "Kedokteran Gigi": {"mn": 592, "mx": 627},
-        "Bioteknologi": {"mn": 585, "mx": 620},
-        "Teknik Industri": {"mn": 584, "mx": 619},
-        "Statistika": {"mn": 579, "mx": 614},
-        "Matematika": {"mn": 576, "mx": 611},
-        "Fisika": {"mn": 571, "mx": 606},
-        "Kimia": {"mn": 568, "mx": 603},
-        "Biologi": {"mn": 566, "mx": 601},
-        "Teknik Lingkungan": {"mn": 562, "mx": 597},
-        "Teknik Geologi": {"mn": 560, "mx": 595},
-        "Teknik Perminyakan": {"mn": 558, "mx": 593},
-        "Arsitektur": {"mn": 557, "mx": 592},
-        "Perencanaan Wilayah dan Kota": {"mn": 554, "mx": 589},
-        "Ilmu Gizi": {"mn": 552, "mx": 587},
-        "Keperawatan": {"mn": 547, "mx": 582},
-        "Agroteknologi": {"mn": 542, "mx": 577},
-        "Agribisnis": {"mn": 540, "mx": 575},
-        "Kehutanan": {"mn": 536, "mx": 571},
-        "Ilmu Tanah": {"mn": 532, "mx": 567},
-        "Teknologi Pangan": {"mn": 530, "mx": 565},
-        "Peternakan": {"mn": 526, "mx": 561},
-        "Ilmu Kelautan": {"mn": 522, "mx": 557},
-        "Psikologi": {"mn": 617, "mx": 652},
-        "Hukum": {"mn": 609, "mx": 644},
-        "Akuntansi": {"mn": 605, "mx": 640},
-        "Manajemen": {"mn": 600, "mx": 635},
-        "Ilmu Komunikasi": {"mn": 597, "mx": 632},
-        "Ekonomi Pembangunan": {"mn": 592, "mx": 627},
-        "Hubungan Internasional": {"mn": 589, "mx": 624},
-        "Ilmu Administrasi Bisnis": {"mn": 585, "mx": 620},
-        "Ilmu Politik": {"mn": 581, "mx": 616},
-        "Sosiologi": {"mn": 576, "mx": 611},
-        "Ilmu Kesejahteraan Sosial": {"mn": 571, "mx": 606},
-        "Kriminologi": {"mn": 570, "mx": 605},
-        "Ilmu Pemerintahan": {"mn": 568, "mx": 603},
-        "Antropologi Sosial": {"mn": 563, "mx": 598},
-        "Ilmu Sejarah": {"mn": 558, "mx": 593},
-        "Sastra Inggris": {"mn": 555, "mx": 590},
-        "Sastra Indonesia": {"mn": 550, "mx": 585},
-        "Pendidikan Bahasa Inggris": {"mn": 547, "mx": 582},
-        "Pendidikan Ekonomi": {"mn": 544, "mx": 579},
-        "Pendidikan Sejarah": {"mn": 541, "mx": 576},
-        "Pendidikan Sosiologi": {"mn": 538, "mx": 573},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 536, "mx": 571},
-        "Keuangan dan Perbankan": {"mn": 534, "mx": 569},
-        "Bisnis Internasional": {"mn": 532, "mx": 567},
-        "Pariwisata": {"mn": 526, "mx": 561},
-        "Administrasi Negara": {"mn": 524, "mx": 559},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 521, "mx": 556},
-        "Sastra Arab": {"mn": 514, "mx": 549},
-        "Sastra Jawa": {"mn": 506, "mx": 541},
-        "Filsafat": {"mn": 502, "mx": 537},
-        "_default": {"mn": 564, "mx": 599},
-        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
-    },
-    "Universitas Mulawarman": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 616, "mx": 651},
-        "Teknik Informatika": {"mn": 609, "mx": 644},
-        "Farmasi": {"mn": 597, "mx": 632},
-        "Teknik Elektro": {"mn": 593, "mx": 628},
-        "Ilmu Komputer": {"mn": 589, "mx": 624},
-        "Teknik Kimia": {"mn": 586, "mx": 621},
-        "Teknik Mesin": {"mn": 582, "mx": 617},
-        "Teknik Sipil": {"mn": 578, "mx": 613},
-        "Kedokteran Gigi": {"mn": 576, "mx": 611},
-        "Bioteknologi": {"mn": 570, "mx": 605},
-        "Teknik Industri": {"mn": 569, "mx": 604},
-        "Statistika": {"mn": 564, "mx": 599},
-        "Matematika": {"mn": 561, "mx": 596},
-        "Fisika": {"mn": 556, "mx": 591},
-        "Kimia": {"mn": 553, "mx": 588},
-        "Biologi": {"mn": 551, "mx": 586},
-        "Teknik Lingkungan": {"mn": 547, "mx": 582},
-        "Teknik Geologi": {"mn": 546, "mx": 581},
-        "Teknik Perminyakan": {"mn": 543, "mx": 578},
-        "Arsitektur": {"mn": 542, "mx": 577},
-        "Perencanaan Wilayah dan Kota": {"mn": 539, "mx": 574},
-        "Ilmu Gizi": {"mn": 538, "mx": 573},
-        "Keperawatan": {"mn": 533, "mx": 568},
-        "Agroteknologi": {"mn": 528, "mx": 563},
-        "Agribisnis": {"mn": 526, "mx": 561},
-        "Kehutanan": {"mn": 522, "mx": 557},
-        "Ilmu Tanah": {"mn": 518, "mx": 553},
-        "Teknologi Pangan": {"mn": 516, "mx": 551},
-        "Peternakan": {"mn": 512, "mx": 547},
-        "Ilmu Kelautan": {"mn": 509, "mx": 544},
-        "Psikologi": {"mn": 601, "mx": 636},
-        "Hukum": {"mn": 593, "mx": 628},
-        "Akuntansi": {"mn": 589, "mx": 624},
-        "Manajemen": {"mn": 584, "mx": 619},
-        "Ilmu Komunikasi": {"mn": 582, "mx": 617},
-        "Ekonomi Pembangunan": {"mn": 576, "mx": 611},
-        "Hubungan Internasional": {"mn": 574, "mx": 609},
-        "Ilmu Administrasi Bisnis": {"mn": 570, "mx": 605},
-        "Ilmu Politik": {"mn": 566, "mx": 601},
-        "Sosiologi": {"mn": 561, "mx": 596},
-        "Ilmu Kesejahteraan Sosial": {"mn": 556, "mx": 591},
-        "Kriminologi": {"mn": 555, "mx": 590},
-        "Ilmu Pemerintahan": {"mn": 553, "mx": 588},
-        "Antropologi Sosial": {"mn": 549, "mx": 584},
-        "Ilmu Sejarah": {"mn": 543, "mx": 578},
-        "Sastra Inggris": {"mn": 541, "mx": 576},
-        "Sastra Indonesia": {"mn": 536, "mx": 571},
-        "Pendidikan Bahasa Inggris": {"mn": 533, "mx": 568},
-        "Pendidikan Ekonomi": {"mn": 530, "mx": 565},
-        "Pendidikan Sejarah": {"mn": 527, "mx": 562},
-        "Pendidikan Sosiologi": {"mn": 524, "mx": 559},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 522, "mx": 557},
-        "Keuangan dan Perbankan": {"mn": 520, "mx": 555},
-        "Bisnis Internasional": {"mn": 518, "mx": 553},
-        "Pariwisata": {"mn": 512, "mx": 547},
-        "Administrasi Negara": {"mn": 510, "mx": 545},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 507, "mx": 542},
-        "Sastra Arab": {"mn": 501, "mx": 536},
-        "Sastra Jawa": {"mn": 493, "mx": 528},
-        "Filsafat": {"mn": 489, "mx": 524},
-        "_default": {"mn": 550, "mx": 585},
-        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
-    },
-    "Universitas Sriwijaya": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 633, "mx": 668},
-        "Teknik Informatika": {"mn": 625, "mx": 660},
-        "Farmasi": {"mn": 613, "mx": 648},
-        "Teknik Elektro": {"mn": 609, "mx": 644},
-        "Ilmu Komputer": {"mn": 605, "mx": 640},
-        "Teknik Kimia": {"mn": 601, "mx": 636},
-        "Teknik Mesin": {"mn": 597, "mx": 632},
-        "Teknik Sipil": {"mn": 593, "mx": 628},
-        "Kedokteran Gigi": {"mn": 592, "mx": 627},
-        "Bioteknologi": {"mn": 585, "mx": 620},
-        "Teknik Industri": {"mn": 584, "mx": 619},
-        "Statistika": {"mn": 579, "mx": 614},
-        "Matematika": {"mn": 576, "mx": 611},
-        "Fisika": {"mn": 571, "mx": 606},
-        "Kimia": {"mn": 568, "mx": 603},
-        "Biologi": {"mn": 566, "mx": 601},
-        "Teknik Lingkungan": {"mn": 562, "mx": 597},
-        "Teknik Geologi": {"mn": 560, "mx": 595},
-        "Teknik Perminyakan": {"mn": 558, "mx": 593},
-        "Arsitektur": {"mn": 557, "mx": 592},
-        "Perencanaan Wilayah dan Kota": {"mn": 554, "mx": 589},
-        "Ilmu Gizi": {"mn": 552, "mx": 587},
-        "Keperawatan": {"mn": 547, "mx": 582},
-        "Agroteknologi": {"mn": 542, "mx": 577},
-        "Agribisnis": {"mn": 540, "mx": 575},
-        "Kehutanan": {"mn": 536, "mx": 571},
-        "Ilmu Tanah": {"mn": 532, "mx": 567},
-        "Teknologi Pangan": {"mn": 530, "mx": 565},
-        "Peternakan": {"mn": 526, "mx": 561},
-        "Ilmu Kelautan": {"mn": 522, "mx": 557},
-        "Psikologi": {"mn": 617, "mx": 652},
-        "Hukum": {"mn": 609, "mx": 644},
-        "Akuntansi": {"mn": 605, "mx": 640},
-        "Manajemen": {"mn": 600, "mx": 635},
-        "Ilmu Komunikasi": {"mn": 597, "mx": 632},
-        "Ekonomi Pembangunan": {"mn": 592, "mx": 627},
-        "Hubungan Internasional": {"mn": 589, "mx": 624},
-        "Ilmu Administrasi Bisnis": {"mn": 585, "mx": 620},
-        "Ilmu Politik": {"mn": 581, "mx": 616},
-        "Sosiologi": {"mn": 576, "mx": 611},
-        "Ilmu Kesejahteraan Sosial": {"mn": 571, "mx": 606},
-        "Kriminologi": {"mn": 570, "mx": 605},
-        "Ilmu Pemerintahan": {"mn": 568, "mx": 603},
-        "Antropologi Sosial": {"mn": 563, "mx": 598},
-        "Ilmu Sejarah": {"mn": 558, "mx": 593},
-        "Sastra Inggris": {"mn": 555, "mx": 590},
-        "Sastra Indonesia": {"mn": 550, "mx": 585},
-        "Pendidikan Bahasa Inggris": {"mn": 547, "mx": 582},
-        "Pendidikan Ekonomi": {"mn": 544, "mx": 579},
-        "Pendidikan Sejarah": {"mn": 541, "mx": 576},
-        "Pendidikan Sosiologi": {"mn": 538, "mx": 573},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 536, "mx": 571},
-        "Keuangan dan Perbankan": {"mn": 534, "mx": 569},
-        "Bisnis Internasional": {"mn": 532, "mx": 567},
-        "Pariwisata": {"mn": 526, "mx": 561},
-        "Administrasi Negara": {"mn": 524, "mx": 559},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 521, "mx": 556},
-        "Sastra Arab": {"mn": 514, "mx": 549},
-        "Sastra Jawa": {"mn": 506, "mx": 541},
-        "Filsafat": {"mn": 502, "mx": 537},
-        "_default": {"mn": 564, "mx": 599},
-        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
-    },
-    "Universitas Udayana": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 666, "mx": 701},
-        "Teknik Informatika": {"mn": 657, "mx": 692},
-        "Farmasi": {"mn": 645, "mx": 680},
-        "Teknik Elektro": {"mn": 641, "mx": 676},
-        "Ilmu Komputer": {"mn": 637, "mx": 672},
-        "Teknik Kimia": {"mn": 632, "mx": 667},
-        "Teknik Mesin": {"mn": 628, "mx": 663},
-        "Teknik Sipil": {"mn": 624, "mx": 659},
-        "Kedokteran Gigi": {"mn": 622, "mx": 657},
-        "Bioteknologi": {"mn": 616, "mx": 651},
-        "Teknik Industri": {"mn": 614, "mx": 649},
-        "Statistika": {"mn": 609, "mx": 644},
-        "Matematika": {"mn": 606, "mx": 641},
-        "Fisika": {"mn": 601, "mx": 636},
-        "Kimia": {"mn": 598, "mx": 633},
-        "Biologi": {"mn": 595, "mx": 630},
-        "Teknik Lingkungan": {"mn": 591, "mx": 626},
-        "Teknik Geologi": {"mn": 589, "mx": 624},
-        "Teknik Perminyakan": {"mn": 587, "mx": 622},
-        "Arsitektur": {"mn": 586, "mx": 621},
-        "Perencanaan Wilayah dan Kota": {"mn": 583, "mx": 618},
-        "Ilmu Gizi": {"mn": 581, "mx": 616},
-        "Keperawatan": {"mn": 576, "mx": 611},
-        "Agroteknologi": {"mn": 570, "mx": 605},
-        "Agribisnis": {"mn": 568, "mx": 603},
-        "Kehutanan": {"mn": 564, "mx": 599},
-        "Ilmu Tanah": {"mn": 559, "mx": 594},
-        "Teknologi Pangan": {"mn": 558, "mx": 593},
-        "Peternakan": {"mn": 554, "mx": 589},
-        "Ilmu Kelautan": {"mn": 549, "mx": 584},
-        "Psikologi": {"mn": 649, "mx": 684},
-        "Hukum": {"mn": 641, "mx": 676},
-        "Akuntansi": {"mn": 637, "mx": 672},
-        "Manajemen": {"mn": 631, "mx": 666},
-        "Ilmu Komunikasi": {"mn": 628, "mx": 663},
-        "Ekonomi Pembangunan": {"mn": 622, "mx": 657},
-        "Hubungan Internasional": {"mn": 620, "mx": 655},
-        "Ilmu Administrasi Bisnis": {"mn": 616, "mx": 651},
-        "Ilmu Politik": {"mn": 612, "mx": 647},
-        "Sosiologi": {"mn": 606, "mx": 641},
-        "Ilmu Kesejahteraan Sosial": {"mn": 601, "mx": 636},
-        "Kriminologi": {"mn": 599, "mx": 634},
-        "Ilmu Pemerintahan": {"mn": 598, "mx": 633},
-        "Antropologi Sosial": {"mn": 593, "mx": 628},
-        "Ilmu Sejarah": {"mn": 587, "mx": 622},
-        "Sastra Inggris": {"mn": 584, "mx": 619},
-        "Sastra Indonesia": {"mn": 578, "mx": 613},
-        "Pendidikan Bahasa Inggris": {"mn": 576, "mx": 611},
-        "Pendidikan Ekonomi": {"mn": 573, "mx": 608},
-        "Pendidikan Sejarah": {"mn": 569, "mx": 604},
-        "Pendidikan Sosiologi": {"mn": 566, "mx": 601},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 564, "mx": 599},
-        "Keuangan dan Perbankan": {"mn": 562, "mx": 597},
-        "Bisnis Internasional": {"mn": 559, "mx": 594},
-        "Pariwisata": {"mn": 554, "mx": 589},
-        "Administrasi Negara": {"mn": 551, "mx": 586},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 548, "mx": 583},
-        "Sastra Arab": {"mn": 541, "mx": 576},
-        "Sastra Jawa": {"mn": 533, "mx": 568},
-        "Filsafat": {"mn": 529, "mx": 564},
-        "_default": {"mn": 594, "mx": 629},
-        "_klaster": 3, "_lbl": "🔹 Klaster 3 — Menengah"
-    },
-    "Universitas Sam Ratulangi": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 616, "mx": 651},
-        "Teknik Informatika": {"mn": 609, "mx": 644},
-        "Farmasi": {"mn": 597, "mx": 632},
-        "Teknik Elektro": {"mn": 593, "mx": 628},
-        "Ilmu Komputer": {"mn": 589, "mx": 624},
-        "Teknik Kimia": {"mn": 586, "mx": 621},
-        "Teknik Mesin": {"mn": 582, "mx": 617},
-        "Teknik Sipil": {"mn": 578, "mx": 613},
-        "Kedokteran Gigi": {"mn": 576, "mx": 611},
-        "Bioteknologi": {"mn": 570, "mx": 605},
-        "Teknik Industri": {"mn": 569, "mx": 604},
-        "Statistika": {"mn": 564, "mx": 599},
-        "Matematika": {"mn": 561, "mx": 596},
-        "Fisika": {"mn": 556, "mx": 591},
-        "Kimia": {"mn": 553, "mx": 588},
-        "Biologi": {"mn": 551, "mx": 586},
-        "Teknik Lingkungan": {"mn": 547, "mx": 582},
-        "Teknik Geologi": {"mn": 546, "mx": 581},
-        "Teknik Perminyakan": {"mn": 543, "mx": 578},
-        "Arsitektur": {"mn": 542, "mx": 577},
-        "Perencanaan Wilayah dan Kota": {"mn": 539, "mx": 574},
-        "Ilmu Gizi": {"mn": 538, "mx": 573},
-        "Keperawatan": {"mn": 533, "mx": 568},
-        "Agroteknologi": {"mn": 528, "mx": 563},
-        "Agribisnis": {"mn": 526, "mx": 561},
-        "Kehutanan": {"mn": 522, "mx": 557},
-        "Ilmu Tanah": {"mn": 518, "mx": 553},
-        "Teknologi Pangan": {"mn": 516, "mx": 551},
-        "Peternakan": {"mn": 512, "mx": 547},
-        "Ilmu Kelautan": {"mn": 509, "mx": 544},
-        "Psikologi": {"mn": 601, "mx": 636},
-        "Hukum": {"mn": 593, "mx": 628},
-        "Akuntansi": {"mn": 589, "mx": 624},
-        "Manajemen": {"mn": 584, "mx": 619},
-        "Ilmu Komunikasi": {"mn": 582, "mx": 617},
-        "Ekonomi Pembangunan": {"mn": 576, "mx": 611},
-        "Hubungan Internasional": {"mn": 574, "mx": 609},
-        "Ilmu Administrasi Bisnis": {"mn": 570, "mx": 605},
-        "Ilmu Politik": {"mn": 566, "mx": 601},
-        "Sosiologi": {"mn": 561, "mx": 596},
-        "Ilmu Kesejahteraan Sosial": {"mn": 556, "mx": 591},
-        "Kriminologi": {"mn": 555, "mx": 590},
-        "Ilmu Pemerintahan": {"mn": 553, "mx": 588},
-        "Antropologi Sosial": {"mn": 549, "mx": 584},
-        "Ilmu Sejarah": {"mn": 543, "mx": 578},
-        "Sastra Inggris": {"mn": 541, "mx": 576},
-        "Sastra Indonesia": {"mn": 536, "mx": 571},
-        "Pendidikan Bahasa Inggris": {"mn": 533, "mx": 568},
-        "Pendidikan Ekonomi": {"mn": 530, "mx": 565},
-        "Pendidikan Sejarah": {"mn": 527, "mx": 562},
-        "Pendidikan Sosiologi": {"mn": 524, "mx": 559},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 522, "mx": 557},
-        "Keuangan dan Perbankan": {"mn": 520, "mx": 555},
-        "Bisnis Internasional": {"mn": 518, "mx": 553},
-        "Pariwisata": {"mn": 512, "mx": 547},
-        "Administrasi Negara": {"mn": 510, "mx": 545},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 507, "mx": 542},
-        "Sastra Arab": {"mn": 501, "mx": 536},
-        "Sastra Jawa": {"mn": 493, "mx": 528},
-        "Filsafat": {"mn": 489, "mx": 524},
-        "_default": {"mn": 550, "mx": 585},
-        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
-    },
-    "Universitas Riau": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 625, "mx": 660},
-        "Teknik Informatika": {"mn": 617, "mx": 652},
-        "Farmasi": {"mn": 605, "mx": 640},
-        "Teknik Elektro": {"mn": 601, "mx": 636},
-        "Ilmu Komputer": {"mn": 597, "mx": 632},
-        "Teknik Kimia": {"mn": 593, "mx": 628},
-        "Teknik Mesin": {"mn": 589, "mx": 624},
-        "Teknik Sipil": {"mn": 586, "mx": 621},
-        "Kedokteran Gigi": {"mn": 584, "mx": 619},
-        "Bioteknologi": {"mn": 578, "mx": 613},
-        "Teknik Industri": {"mn": 576, "mx": 611},
-        "Statistika": {"mn": 572, "mx": 607},
-        "Matematika": {"mn": 568, "mx": 603},
-        "Fisika": {"mn": 564, "mx": 599},
-        "Kimia": {"mn": 561, "mx": 596},
-        "Biologi": {"mn": 558, "mx": 593},
-        "Teknik Lingkungan": {"mn": 554, "mx": 589},
-        "Teknik Geologi": {"mn": 553, "mx": 588},
-        "Teknik Perminyakan": {"mn": 551, "mx": 586},
-        "Arsitektur": {"mn": 550, "mx": 585},
-        "Perencanaan Wilayah dan Kota": {"mn": 547, "mx": 582},
-        "Ilmu Gizi": {"mn": 545, "mx": 580},
-        "Keperawatan": {"mn": 540, "mx": 575},
-        "Agroteknologi": {"mn": 535, "mx": 570},
-        "Agribisnis": {"mn": 533, "mx": 568},
-        "Kehutanan": {"mn": 529, "mx": 564},
-        "Ilmu Tanah": {"mn": 525, "mx": 560},
-        "Teknologi Pangan": {"mn": 523, "mx": 558},
-        "Peternakan": {"mn": 519, "mx": 554},
-        "Ilmu Kelautan": {"mn": 515, "mx": 550},
-        "Psikologi": {"mn": 609, "mx": 644},
-        "Hukum": {"mn": 601, "mx": 636},
-        "Akuntansi": {"mn": 597, "mx": 632},
-        "Manajemen": {"mn": 592, "mx": 627},
-        "Ilmu Komunikasi": {"mn": 589, "mx": 624},
-        "Ekonomi Pembangunan": {"mn": 584, "mx": 619},
-        "Hubungan Internasional": {"mn": 582, "mx": 617},
-        "Ilmu Administrasi Bisnis": {"mn": 578, "mx": 613},
-        "Ilmu Politik": {"mn": 574, "mx": 609},
-        "Sosiologi": {"mn": 568, "mx": 603},
-        "Ilmu Kesejahteraan Sosial": {"mn": 564, "mx": 599},
-        "Kriminologi": {"mn": 562, "mx": 597},
-        "Ilmu Pemerintahan": {"mn": 561, "mx": 596},
-        "Antropologi Sosial": {"mn": 556, "mx": 591},
-        "Ilmu Sejarah": {"mn": 551, "mx": 586},
-        "Sastra Inggris": {"mn": 548, "mx": 583},
-        "Sastra Indonesia": {"mn": 543, "mx": 578},
-        "Pendidikan Bahasa Inggris": {"mn": 540, "mx": 575},
-        "Pendidikan Ekonomi": {"mn": 537, "mx": 572},
-        "Pendidikan Sejarah": {"mn": 534, "mx": 569},
-        "Pendidikan Sosiologi": {"mn": 531, "mx": 566},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 529, "mx": 564},
-        "Keuangan dan Perbankan": {"mn": 527, "mx": 562},
-        "Bisnis Internasional": {"mn": 525, "mx": 560},
-        "Pariwisata": {"mn": 519, "mx": 554},
-        "Administrasi Negara": {"mn": 517, "mx": 552},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 514, "mx": 549},
-        "Sastra Arab": {"mn": 508, "mx": 543},
-        "Sastra Jawa": {"mn": 500, "mx": 535},
-        "Filsafat": {"mn": 496, "mx": 531},
-        "_default": {"mn": 557, "mx": 592},
-        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
-    },
-    "Universitas Jember": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 641, "mx": 676},
-        "Teknik Informatika": {"mn": 633, "mx": 668},
-        "Farmasi": {"mn": 621, "mx": 656},
-        "Teknik Elektro": {"mn": 617, "mx": 652},
-        "Ilmu Komputer": {"mn": 613, "mx": 648},
-        "Teknik Kimia": {"mn": 609, "mx": 644},
-        "Teknik Mesin": {"mn": 605, "mx": 640},
-        "Teknik Sipil": {"mn": 601, "mx": 636},
-        "Kedokteran Gigi": {"mn": 599, "mx": 634},
-        "Bioteknologi": {"mn": 593, "mx": 628},
-        "Teknik Industri": {"mn": 591, "mx": 626},
-        "Statistika": {"mn": 587, "mx": 622},
-        "Matematika": {"mn": 583, "mx": 618},
-        "Fisika": {"mn": 579, "mx": 614},
-        "Kimia": {"mn": 575, "mx": 610},
-        "Biologi": {"mn": 573, "mx": 608},
-        "Teknik Lingkungan": {"mn": 569, "mx": 604},
-        "Teknik Geologi": {"mn": 567, "mx": 602},
-        "Teknik Perminyakan": {"mn": 565, "mx": 600},
-        "Arsitektur": {"mn": 564, "mx": 599},
-        "Perencanaan Wilayah dan Kota": {"mn": 561, "mx": 596},
-        "Ilmu Gizi": {"mn": 559, "mx": 594},
-        "Keperawatan": {"mn": 555, "mx": 590},
-        "Agroteknologi": {"mn": 549, "mx": 584},
-        "Agribisnis": {"mn": 547, "mx": 582},
-        "Kehutanan": {"mn": 543, "mx": 578},
-        "Ilmu Tanah": {"mn": 539, "mx": 574},
-        "Teknologi Pangan": {"mn": 537, "mx": 572},
-        "Peternakan": {"mn": 533, "mx": 568},
-        "Ilmu Kelautan": {"mn": 529, "mx": 564},
-        "Psikologi": {"mn": 625, "mx": 660},
-        "Hukum": {"mn": 617, "mx": 652},
-        "Akuntansi": {"mn": 613, "mx": 648},
-        "Manajemen": {"mn": 607, "mx": 642},
-        "Ilmu Komunikasi": {"mn": 605, "mx": 640},
-        "Ekonomi Pembangunan": {"mn": 599, "mx": 634},
-        "Hubungan Internasional": {"mn": 597, "mx": 632},
-        "Ilmu Administrasi Bisnis": {"mn": 593, "mx": 628},
-        "Ilmu Politik": {"mn": 589, "mx": 624},
-        "Sosiologi": {"mn": 583, "mx": 618},
-        "Ilmu Kesejahteraan Sosial": {"mn": 579, "mx": 614},
-        "Kriminologi": {"mn": 577, "mx": 612},
-        "Ilmu Pemerintahan": {"mn": 575, "mx": 610},
-        "Antropologi Sosial": {"mn": 571, "mx": 606},
-        "Ilmu Sejarah": {"mn": 565, "mx": 600},
-        "Sastra Inggris": {"mn": 563, "mx": 598},
-        "Sastra Indonesia": {"mn": 557, "mx": 592},
-        "Pendidikan Bahasa Inggris": {"mn": 555, "mx": 590},
-        "Pendidikan Ekonomi": {"mn": 551, "mx": 586},
-        "Pendidikan Sejarah": {"mn": 548, "mx": 583},
-        "Pendidikan Sosiologi": {"mn": 545, "mx": 580},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 543, "mx": 578},
-        "Keuangan dan Perbankan": {"mn": 541, "mx": 576},
-        "Bisnis Internasional": {"mn": 539, "mx": 574},
-        "Pariwisata": {"mn": 533, "mx": 568},
-        "Administrasi Negara": {"mn": 531, "mx": 566},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 527, "mx": 562},
-        "Sastra Arab": {"mn": 521, "mx": 556},
-        "Sastra Jawa": {"mn": 513, "mx": 548},
-        "Filsafat": {"mn": 509, "mx": 544},
-        "_default": {"mn": 572, "mx": 607},
-        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
-    },
-    "Telkom University": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 633, "mx": 668},
-        "Teknik Informatika": {"mn": 625, "mx": 660},
-        "Farmasi": {"mn": 613, "mx": 648},
-        "Teknik Elektro": {"mn": 609, "mx": 644},
-        "Ilmu Komputer": {"mn": 605, "mx": 640},
-        "Teknik Kimia": {"mn": 601, "mx": 636},
-        "Teknik Mesin": {"mn": 597, "mx": 632},
-        "Teknik Sipil": {"mn": 593, "mx": 628},
-        "Kedokteran Gigi": {"mn": 592, "mx": 627},
-        "Bioteknologi": {"mn": 585, "mx": 620},
-        "Teknik Industri": {"mn": 584, "mx": 619},
-        "Statistika": {"mn": 579, "mx": 614},
-        "Matematika": {"mn": 576, "mx": 611},
-        "Fisika": {"mn": 571, "mx": 606},
-        "Kimia": {"mn": 568, "mx": 603},
-        "Biologi": {"mn": 566, "mx": 601},
-        "Teknik Lingkungan": {"mn": 562, "mx": 597},
-        "Teknik Geologi": {"mn": 560, "mx": 595},
-        "Teknik Perminyakan": {"mn": 558, "mx": 593},
-        "Arsitektur": {"mn": 557, "mx": 592},
-        "Perencanaan Wilayah dan Kota": {"mn": 554, "mx": 589},
-        "Ilmu Gizi": {"mn": 552, "mx": 587},
-        "Keperawatan": {"mn": 547, "mx": 582},
-        "Agroteknologi": {"mn": 542, "mx": 577},
-        "Agribisnis": {"mn": 540, "mx": 575},
-        "Kehutanan": {"mn": 536, "mx": 571},
-        "Ilmu Tanah": {"mn": 532, "mx": 567},
-        "Teknologi Pangan": {"mn": 530, "mx": 565},
-        "Peternakan": {"mn": 526, "mx": 561},
-        "Ilmu Kelautan": {"mn": 522, "mx": 557},
-        "Psikologi": {"mn": 617, "mx": 652},
-        "Hukum": {"mn": 609, "mx": 644},
-        "Akuntansi": {"mn": 605, "mx": 640},
-        "Manajemen": {"mn": 600, "mx": 635},
-        "Ilmu Komunikasi": {"mn": 597, "mx": 632},
-        "Ekonomi Pembangunan": {"mn": 592, "mx": 627},
-        "Hubungan Internasional": {"mn": 589, "mx": 624},
-        "Ilmu Administrasi Bisnis": {"mn": 585, "mx": 620},
-        "Ilmu Politik": {"mn": 581, "mx": 616},
-        "Sosiologi": {"mn": 576, "mx": 611},
-        "Ilmu Kesejahteraan Sosial": {"mn": 571, "mx": 606},
-        "Kriminologi": {"mn": 570, "mx": 605},
-        "Ilmu Pemerintahan": {"mn": 568, "mx": 603},
-        "Antropologi Sosial": {"mn": 563, "mx": 598},
-        "Ilmu Sejarah": {"mn": 558, "mx": 593},
-        "Sastra Inggris": {"mn": 555, "mx": 590},
-        "Sastra Indonesia": {"mn": 550, "mx": 585},
-        "Pendidikan Bahasa Inggris": {"mn": 547, "mx": 582},
-        "Pendidikan Ekonomi": {"mn": 544, "mx": 579},
-        "Pendidikan Sejarah": {"mn": 541, "mx": 576},
-        "Pendidikan Sosiologi": {"mn": 538, "mx": 573},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 536, "mx": 571},
-        "Keuangan dan Perbankan": {"mn": 534, "mx": 569},
-        "Bisnis Internasional": {"mn": 532, "mx": 567},
-        "Pariwisata": {"mn": 526, "mx": 561},
-        "Administrasi Negara": {"mn": 524, "mx": 559},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 521, "mx": 556},
-        "Sastra Arab": {"mn": 514, "mx": 549},
-        "Sastra Jawa": {"mn": 506, "mx": 541},
-        "Filsafat": {"mn": 502, "mx": 537},
-        "_default": {"mn": 564, "mx": 599},
-        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
-    },
-    "Universitas Islam Indonesia": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 625, "mx": 660},
-        "Teknik Informatika": {"mn": 617, "mx": 652},
-        "Farmasi": {"mn": 605, "mx": 640},
-        "Teknik Elektro": {"mn": 601, "mx": 636},
-        "Ilmu Komputer": {"mn": 597, "mx": 632},
-        "Teknik Kimia": {"mn": 593, "mx": 628},
-        "Teknik Mesin": {"mn": 589, "mx": 624},
-        "Teknik Sipil": {"mn": 586, "mx": 621},
-        "Kedokteran Gigi": {"mn": 584, "mx": 619},
-        "Bioteknologi": {"mn": 578, "mx": 613},
-        "Teknik Industri": {"mn": 576, "mx": 611},
-        "Statistika": {"mn": 572, "mx": 607},
-        "Matematika": {"mn": 568, "mx": 603},
-        "Fisika": {"mn": 564, "mx": 599},
-        "Kimia": {"mn": 561, "mx": 596},
-        "Biologi": {"mn": 558, "mx": 593},
-        "Teknik Lingkungan": {"mn": 554, "mx": 589},
-        "Teknik Geologi": {"mn": 553, "mx": 588},
-        "Teknik Perminyakan": {"mn": 551, "mx": 586},
-        "Arsitektur": {"mn": 550, "mx": 585},
-        "Perencanaan Wilayah dan Kota": {"mn": 547, "mx": 582},
-        "Ilmu Gizi": {"mn": 545, "mx": 580},
-        "Keperawatan": {"mn": 540, "mx": 575},
-        "Agroteknologi": {"mn": 535, "mx": 570},
-        "Agribisnis": {"mn": 533, "mx": 568},
-        "Kehutanan": {"mn": 529, "mx": 564},
-        "Ilmu Tanah": {"mn": 525, "mx": 560},
-        "Teknologi Pangan": {"mn": 523, "mx": 558},
-        "Peternakan": {"mn": 519, "mx": 554},
-        "Ilmu Kelautan": {"mn": 515, "mx": 550},
-        "Psikologi": {"mn": 609, "mx": 644},
-        "Hukum": {"mn": 601, "mx": 636},
-        "Akuntansi": {"mn": 597, "mx": 632},
-        "Manajemen": {"mn": 592, "mx": 627},
-        "Ilmu Komunikasi": {"mn": 589, "mx": 624},
-        "Ekonomi Pembangunan": {"mn": 584, "mx": 619},
-        "Hubungan Internasional": {"mn": 582, "mx": 617},
-        "Ilmu Administrasi Bisnis": {"mn": 578, "mx": 613},
-        "Ilmu Politik": {"mn": 574, "mx": 609},
-        "Sosiologi": {"mn": 568, "mx": 603},
-        "Ilmu Kesejahteraan Sosial": {"mn": 564, "mx": 599},
-        "Kriminologi": {"mn": 562, "mx": 597},
-        "Ilmu Pemerintahan": {"mn": 561, "mx": 596},
-        "Antropologi Sosial": {"mn": 556, "mx": 591},
-        "Ilmu Sejarah": {"mn": 551, "mx": 586},
-        "Sastra Inggris": {"mn": 548, "mx": 583},
-        "Sastra Indonesia": {"mn": 543, "mx": 578},
-        "Pendidikan Bahasa Inggris": {"mn": 540, "mx": 575},
-        "Pendidikan Ekonomi": {"mn": 537, "mx": 572},
-        "Pendidikan Sejarah": {"mn": 534, "mx": 569},
-        "Pendidikan Sosiologi": {"mn": 531, "mx": 566},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 529, "mx": 564},
-        "Keuangan dan Perbankan": {"mn": 527, "mx": 562},
-        "Bisnis Internasional": {"mn": 525, "mx": 560},
-        "Pariwisata": {"mn": 519, "mx": 554},
-        "Administrasi Negara": {"mn": 517, "mx": 552},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 514, "mx": 549},
-        "Sastra Arab": {"mn": 508, "mx": 543},
-        "Sastra Jawa": {"mn": 500, "mx": 535},
-        "Filsafat": {"mn": 496, "mx": 531},
-        "_default": {"mn": 557, "mx": 592},
-        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
-    },
-    "Universitas Muhammadiyah Yogyakarta": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 608, "mx": 643},
-        "Teknik Informatika": {"mn": 601, "mx": 636},
-        "Farmasi": {"mn": 589, "mx": 624},
-        "Teknik Elektro": {"mn": 585, "mx": 620},
-        "Ilmu Komputer": {"mn": 582, "mx": 617},
-        "Teknik Kimia": {"mn": 578, "mx": 613},
-        "Teknik Mesin": {"mn": 574, "mx": 609},
-        "Teknik Sipil": {"mn": 570, "mx": 605},
-        "Kedokteran Gigi": {"mn": 569, "mx": 604},
-        "Bioteknologi": {"mn": 563, "mx": 598},
-        "Teknik Industri": {"mn": 561, "mx": 596},
-        "Statistika": {"mn": 557, "mx": 592},
-        "Matematika": {"mn": 553, "mx": 588},
-        "Fisika": {"mn": 549, "mx": 584},
-        "Kimia": {"mn": 546, "mx": 581},
-        "Biologi": {"mn": 544, "mx": 579},
-        "Teknik Lingkungan": {"mn": 540, "mx": 575},
-        "Teknik Geologi": {"mn": 538, "mx": 573},
-        "Teknik Perminyakan": {"mn": 536, "mx": 571},
-        "Arsitektur": {"mn": 535, "mx": 570},
-        "Perencanaan Wilayah dan Kota": {"mn": 532, "mx": 567},
-        "Ilmu Gizi": {"mn": 531, "mx": 566},
-        "Keperawatan": {"mn": 526, "mx": 561},
-        "Agroteknologi": {"mn": 521, "mx": 556},
-        "Agribisnis": {"mn": 519, "mx": 554},
-        "Kehutanan": {"mn": 515, "mx": 550},
-        "Ilmu Tanah": {"mn": 511, "mx": 546},
-        "Teknologi Pangan": {"mn": 509, "mx": 544},
-        "Peternakan": {"mn": 506, "mx": 541},
-        "Ilmu Kelautan": {"mn": 502, "mx": 537},
-        "Psikologi": {"mn": 593, "mx": 628},
-        "Hukum": {"mn": 585, "mx": 620},
-        "Akuntansi": {"mn": 582, "mx": 617},
-        "Manajemen": {"mn": 576, "mx": 611},
-        "Ilmu Komunikasi": {"mn": 574, "mx": 609},
-        "Ekonomi Pembangunan": {"mn": 569, "mx": 604},
-        "Hubungan Internasional": {"mn": 566, "mx": 601},
-        "Ilmu Administrasi Bisnis": {"mn": 563, "mx": 598},
-        "Ilmu Politik": {"mn": 559, "mx": 594},
-        "Sosiologi": {"mn": 553, "mx": 588},
-        "Ilmu Kesejahteraan Sosial": {"mn": 549, "mx": 584},
-        "Kriminologi": {"mn": 547, "mx": 582},
-        "Ilmu Pemerintahan": {"mn": 546, "mx": 581},
-        "Antropologi Sosial": {"mn": 541, "mx": 576},
-        "Ilmu Sejarah": {"mn": 536, "mx": 571},
-        "Sastra Inggris": {"mn": 534, "mx": 569},
-        "Sastra Indonesia": {"mn": 528, "mx": 563},
-        "Pendidikan Bahasa Inggris": {"mn": 526, "mx": 561},
-        "Pendidikan Ekonomi": {"mn": 523, "mx": 558},
-        "Pendidikan Sejarah": {"mn": 520, "mx": 555},
-        "Pendidikan Sosiologi": {"mn": 517, "mx": 552},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 515, "mx": 550},
-        "Keuangan dan Perbankan": {"mn": 513, "mx": 548},
-        "Bisnis Internasional": {"mn": 511, "mx": 546},
-        "Pariwisata": {"mn": 506, "mx": 541},
-        "Administrasi Negara": {"mn": 503, "mx": 538},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 500, "mx": 535},
-        "Sastra Arab": {"mn": 494, "mx": 529},
-        "Sastra Jawa": {"mn": 487, "mx": 522},
-        "Filsafat": {"mn": 483, "mx": 518},
-        "_default": {"mn": 542, "mx": 577},
-        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
-    },
-    "Bina Nusantara University": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 641, "mx": 676},
-        "Teknik Informatika": {"mn": 633, "mx": 668},
-        "Farmasi": {"mn": 621, "mx": 656},
-        "Teknik Elektro": {"mn": 617, "mx": 652},
-        "Ilmu Komputer": {"mn": 613, "mx": 648},
-        "Teknik Kimia": {"mn": 609, "mx": 644},
-        "Teknik Mesin": {"mn": 605, "mx": 640},
-        "Teknik Sipil": {"mn": 601, "mx": 636},
-        "Kedokteran Gigi": {"mn": 599, "mx": 634},
-        "Bioteknologi": {"mn": 593, "mx": 628},
-        "Teknik Industri": {"mn": 591, "mx": 626},
-        "Statistika": {"mn": 587, "mx": 622},
-        "Matematika": {"mn": 583, "mx": 618},
-        "Fisika": {"mn": 579, "mx": 614},
-        "Kimia": {"mn": 575, "mx": 610},
-        "Biologi": {"mn": 573, "mx": 608},
-        "Teknik Lingkungan": {"mn": 569, "mx": 604},
-        "Teknik Geologi": {"mn": 567, "mx": 602},
-        "Teknik Perminyakan": {"mn": 565, "mx": 600},
-        "Arsitektur": {"mn": 564, "mx": 599},
-        "Perencanaan Wilayah dan Kota": {"mn": 561, "mx": 596},
-        "Ilmu Gizi": {"mn": 559, "mx": 594},
-        "Keperawatan": {"mn": 555, "mx": 590},
-        "Agroteknologi": {"mn": 549, "mx": 584},
-        "Agribisnis": {"mn": 547, "mx": 582},
-        "Kehutanan": {"mn": 543, "mx": 578},
-        "Ilmu Tanah": {"mn": 539, "mx": 574},
-        "Teknologi Pangan": {"mn": 537, "mx": 572},
-        "Peternakan": {"mn": 533, "mx": 568},
-        "Ilmu Kelautan": {"mn": 529, "mx": 564},
-        "Psikologi": {"mn": 625, "mx": 660},
-        "Hukum": {"mn": 617, "mx": 652},
-        "Akuntansi": {"mn": 613, "mx": 648},
-        "Manajemen": {"mn": 607, "mx": 642},
-        "Ilmu Komunikasi": {"mn": 605, "mx": 640},
-        "Ekonomi Pembangunan": {"mn": 599, "mx": 634},
-        "Hubungan Internasional": {"mn": 597, "mx": 632},
-        "Ilmu Administrasi Bisnis": {"mn": 593, "mx": 628},
-        "Ilmu Politik": {"mn": 589, "mx": 624},
-        "Sosiologi": {"mn": 583, "mx": 618},
-        "Ilmu Kesejahteraan Sosial": {"mn": 579, "mx": 614},
-        "Kriminologi": {"mn": 577, "mx": 612},
-        "Ilmu Pemerintahan": {"mn": 575, "mx": 610},
-        "Antropologi Sosial": {"mn": 571, "mx": 606},
-        "Ilmu Sejarah": {"mn": 565, "mx": 600},
-        "Sastra Inggris": {"mn": 563, "mx": 598},
-        "Sastra Indonesia": {"mn": 557, "mx": 592},
-        "Pendidikan Bahasa Inggris": {"mn": 555, "mx": 590},
-        "Pendidikan Ekonomi": {"mn": 551, "mx": 586},
-        "Pendidikan Sejarah": {"mn": 548, "mx": 583},
-        "Pendidikan Sosiologi": {"mn": 545, "mx": 580},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 543, "mx": 578},
-        "Keuangan dan Perbankan": {"mn": 541, "mx": 576},
-        "Bisnis Internasional": {"mn": 539, "mx": 574},
-        "Pariwisata": {"mn": 533, "mx": 568},
-        "Administrasi Negara": {"mn": 531, "mx": 566},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 527, "mx": 562},
-        "Sastra Arab": {"mn": 521, "mx": 556},
-        "Sastra Jawa": {"mn": 513, "mx": 548},
-        "Filsafat": {"mn": 509, "mx": 544},
-        "_default": {"mn": 572, "mx": 607},
-        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
-    },
-    "Universitas Muhammadiyah Malang": {
-        "Pendidikan Dokter (Kedokteran)": {"mn": 600, "mx": 635},
-        "Teknik Informatika": {"mn": 593, "mx": 628},
-        "Farmasi": {"mn": 581, "mx": 616},
-        "Teknik Elektro": {"mn": 577, "mx": 612},
-        "Ilmu Komputer": {"mn": 574, "mx": 609},
-        "Teknik Kimia": {"mn": 570, "mx": 605},
-        "Teknik Mesin": {"mn": 566, "mx": 601},
-        "Teknik Sipil": {"mn": 563, "mx": 598},
-        "Kedokteran Gigi": {"mn": 561, "mx": 596},
-        "Bioteknologi": {"mn": 555, "mx": 590},
-        "Teknik Industri": {"mn": 553, "mx": 588},
-        "Statistika": {"mn": 549, "mx": 584},
-        "Matematika": {"mn": 546, "mx": 581},
-        "Fisika": {"mn": 541, "mx": 576},
-        "Kimia": {"mn": 539, "mx": 574},
-        "Biologi": {"mn": 536, "mx": 571},
-        "Teknik Lingkungan": {"mn": 533, "mx": 568},
-        "Teknik Geologi": {"mn": 531, "mx": 566},
-        "Teknik Perminyakan": {"mn": 529, "mx": 564},
-        "Arsitektur": {"mn": 528, "mx": 563},
-        "Perencanaan Wilayah dan Kota": {"mn": 525, "mx": 560},
-        "Ilmu Gizi": {"mn": 523, "mx": 558},
-        "Keperawatan": {"mn": 519, "mx": 554},
-        "Agroteknologi": {"mn": 514, "mx": 549},
-        "Agribisnis": {"mn": 512, "mx": 547},
-        "Kehutanan": {"mn": 509, "mx": 544},
-        "Ilmu Tanah": {"mn": 504, "mx": 539},
-        "Teknologi Pangan": {"mn": 503, "mx": 538},
-        "Peternakan": {"mn": 499, "mx": 534},
-        "Ilmu Kelautan": {"mn": 495, "mx": 530},
-        "Psikologi": {"mn": 585, "mx": 620},
-        "Hukum": {"mn": 577, "mx": 612},
-        "Akuntansi": {"mn": 574, "mx": 609},
-        "Manajemen": {"mn": 569, "mx": 604},
-        "Ilmu Komunikasi": {"mn": 566, "mx": 601},
-        "Ekonomi Pembangunan": {"mn": 561, "mx": 596},
-        "Hubungan Internasional": {"mn": 559, "mx": 594},
-        "Ilmu Administrasi Bisnis": {"mn": 555, "mx": 590},
-        "Ilmu Politik": {"mn": 551, "mx": 586},
-        "Sosiologi": {"mn": 546, "mx": 581},
-        "Ilmu Kesejahteraan Sosial": {"mn": 541, "mx": 576},
-        "Kriminologi": {"mn": 540, "mx": 575},
-        "Ilmu Pemerintahan": {"mn": 539, "mx": 574},
-        "Antropologi Sosial": {"mn": 534, "mx": 569},
-        "Ilmu Sejarah": {"mn": 529, "mx": 564},
-        "Sastra Inggris": {"mn": 527, "mx": 562},
-        "Sastra Indonesia": {"mn": 521, "mx": 556},
-        "Pendidikan Bahasa Inggris": {"mn": 519, "mx": 554},
-        "Pendidikan Ekonomi": {"mn": 516, "mx": 551},
-        "Pendidikan Sejarah": {"mn": 513, "mx": 548},
-        "Pendidikan Sosiologi": {"mn": 510, "mx": 545},
-        "Perpustakaan dan Ilmu Informasi": {"mn": 509, "mx": 544},
-        "Keuangan dan Perbankan": {"mn": 506, "mx": 541},
-        "Bisnis Internasional": {"mn": 504, "mx": 539},
-        "Pariwisata": {"mn": 499, "mx": 534},
-        "Administrasi Negara": {"mn": 497, "mx": 532},
-        "Pendidikan Pancasila dan Kewarganegaraan": {"mn": 493, "mx": 528},
-        "Sastra Arab": {"mn": 487, "mx": 522},
-        "Sastra Jawa": {"mn": 480, "mx": 515},
-        "Filsafat": {"mn": 476, "mx": 511},
-        "_default": {"mn": 535, "mx": 570},
-        "_klaster": 4, "_lbl": "🔸 Klaster 4 — Regional"
-    },
+ALTERNATIF_MAP_D3 = {
+    "D3 Teknik Sipil":         ["D3 Teknik Mesin","D3 Teknik Elektro","D3 Teknik Mekatronika"],
+    "D3 Teknik Mesin":         ["D3 Teknik Sipil","D3 Teknik Elektro","D3 Teknik Mekatronika"],
+    "D3 Teknik Elektro":       ["D3 Teknik Komputer","D3 Teknologi Informasi","D3 Teknik Mekatronika"],
+    "D3 Teknik Kimia":         ["D3 Teknologi Pangan","D3 Teknik Sipil","D3 Teknik Mesin"],
+    "D3 Teknik Komputer":      ["D3 Teknologi Informasi","D3 Teknik Elektro","D3 Animasi"],
+    "D3 Teknologi Informasi":  ["D3 Teknik Komputer","D3 Animasi","D3 Desain Grafis"],
+    "D3 Teknik Mekatronika":   ["D3 Teknik Mesin","D3 Teknik Elektro","D3 Teknik Komputer"],
+    "D3 Manajemen":            ["D3 Administrasi Bisnis","D3 Manajemen Pemasaran","D3 Akuntansi"],
+    "D3 Akuntansi":            ["D3 Perpajakan","D3 Perbankan & Keuangan","D3 Manajemen"],
+    "D3 Administrasi Bisnis":  ["D3 Manajemen","D3 Manajemen Pemasaran","D3 Akuntansi"],
+    "D3 Perbankan & Keuangan": ["D3 Akuntansi","D3 Perpajakan","D3 Manajemen"],
+    "D3 Manajemen Pemasaran":  ["D3 Administrasi Bisnis","D3 Komunikasi","D3 Manajemen"],
+    "D3 Perpajakan":           ["D3 Akuntansi","D3 Perbankan & Keuangan","D3 Manajemen"],
+    "D3 Keperawatan":          ["D3 Kebidanan","D3 Gizi","D3 Farmasi"],
+    "D3 Kebidanan":            ["D3 Keperawatan","D3 Gizi","D3 Analis Kesehatan"],
+    "D3 Farmasi":              ["D3 Analis Kesehatan","D3 Keperawatan","D3 Gizi"],
+    "D3 Gizi":                 ["D3 Keperawatan","D3 Farmasi","D3 Analis Kesehatan"],
+    "D3 Analis Kesehatan":     ["D3 Farmasi","D3 Radiologi","D3 Rekam Medis"],
+    "D3 Rekam Medis":          ["D3 Administrasi Bisnis","D3 Analis Kesehatan","D3 Keperawatan"],
+    "D3 Fisioterapi":          ["D3 Keperawatan","D3 Gizi","D3 Kebidanan"],
+    "D3 Radiologi":            ["D3 Analis Kesehatan","D3 Rekam Medis","D3 Farmasi"],
+    "D3 Komunikasi":           ["D3 Hubungan Masyarakat","D3 Manajemen Pemasaran","D3 Pariwisata"],
+    "D3 Hubungan Masyarakat":  ["D3 Komunikasi","D3 Manajemen Pemasaran","D3 Administrasi Bisnis"],
+    "D3 Desain Grafis":        ["D3 Animasi","D3 Komunikasi","D3 Teknologi Informasi"],
+    "D3 Animasi":              ["D3 Desain Grafis","D3 Teknologi Informasi","D3 Komunikasi"],
+    "D3 Pariwisata":           ["D3 Perhotelan","D3 Komunikasi","D3 Manajemen"],
+    "D3 Perhotelan":           ["D3 Pariwisata","D3 Manajemen","D3 Komunikasi"],
+    "D3 Bahasa Inggris":       ["D3 Komunikasi","D3 Hubungan Masyarakat","D3 Pariwisata"],
+    "D3 Agribisnis":           ["D3 Teknologi Pangan","D3 Manajemen","D3 Administrasi Bisnis"],
+    "D3 Teknologi Pangan":     ["D3 Agribisnis","D3 Analis Kesehatan","D3 Gizi"],
+}
+
+LABEL_STRATEGI = ["Intensif & Terstruktur","Penguatan Mental","Optimasi & Review","Pertahankan & Tingkatkan"]
+DESC_STRATEGI = {
+    "Intensif & Terstruktur":{"icon":"🔴","desc":"Kebiasaan belajar dan kondisi psikologis perlu ditingkatkan secara bersamaan.",
+        "tips":["Buat jadwal belajar harian yang ketat","Mulai 2 jam/hari, tingkatkan bertahap","Metode Pomodoro 25+5 menit","Cari kelompok belajar","Konsultasi guru/mentor"]},
+    "Penguatan Mental":{"icon":"🟠","desc":"Kebiasaan belajar sudah baik, namun kondisi psikologis perlu diperkuat.",
+        "tips":["Mindfulness 10 mnt sebelum belajar","Target kecil harian","Kurangi perbandingan diri","Rutinitas tidur teratur","Tryout rutin untuk adaptasi"]},
+    "Optimasi & Review":{"icon":"🟡","desc":"Kebiasaan & mental sudah baik, tingkatkan kualitas review dan evaluasi.",
+        "tips":["Review soal yang pernah salah","Analisis pola kesalahan per subtes","Tryout min. 2x/bulan","Catatan ringkasan materi","Fokus efisiensi waktu"]},
+    "Pertahankan & Tingkatkan":{"icon":"🟢","desc":"Kebiasaan belajar dan kondisi psikologis sudah sangat baik!",
+        "tips":["Pertahankan konsistensi","Tingkatkan target tryout bertahap","Manajemen waktu ujian","Bantu teman belajar","Jaga kesehatan fisik"]},
 }
 
 
 # ══════════════════════════════════════════════════════════
-# HELPER FUNCTIONS
+# LOAD MODEL
 # ══════════════════════════════════════════════════════════
-def hitung_skor_weighted(scores: dict, jurusan: str) -> float:
+@st.cache_resource
+def load_model():
+    for f in ["lgbm_model_2_.pkl","lgbm_model.pkl","model_skor_utbk_asli.pkl"]:
+        if os.path.exists(f):
+            try:
+                with open(f,"rb") as fp: return pickle.load(fp), f
+            except: pass
+    return None, None
+
+lgbm_model, lgbm_fname = load_model()
+
+
+# ══════════════════════════════════════════════════════════
+# KALKULASI
+# ══════════════════════════════════════════════════════════
+def hitung_tw(skor, bobot): return sum(skor[k]*bobot[k] for k in SUBTES)
+
+def hitung_peluang(sw, kampus, jurusan=None, jenjang="S1 (Sarjana)"):
+    if jurusan:
+        info = get_ptn_info(kampus, jurusan, jenjang)
+    else:
+        info = get_ptn(kampus)
+    mn, mx = info["mn"], info["mx"]
+    g = sw - mn
+    if sw >= mx:      return "Sangat Aman","#1a8a4a", min(93.,76+(sw-mx)/max(mx,1)*12)
+    elif sw >= mn:    return "Aman","#1a8a4a",        62+(sw-mn)/max(mx-mn,1)*13
+    elif sw >= mn-70: return "Kompetitif","#d4620a",  32+(70+g)/70*25
+    elif sw >= mn-140:return "Berisiko","#c0392b",    16.
+    else:             return "Perlu Peningkatan","#c0392b", 8.
+
+def predict_lgbm(model, inp):
+    try:
+        feat = pd.DataFrame([{
+            "Jam_Belajar":inp["jam"],"Hari_Belajar":inp["hari"],
+            "Latihan_Soal":inp["latihan"],"Frekuensi_Tryout":inp["tryout"],
+            "Review_Soal":inp["review"],"Fokus":inp["fokus"],
+            "Percaya_Diri":inp["pede"],
+            "Kecemasan_Rev":6-inp["cemas"],"Distraksi_Rev":6-inp["distrak"],
+        }])
+        if hasattr(model,"feature_name_"):     feat = feat.reindex(columns=model.feature_name_,fill_value=0)
+        elif hasattr(model,"feature_names_in_"):feat = feat.reindex(columns=model.feature_names_in_,fill_value=0)
+        kode  = int(model.predict(feat)[0])
+        label = LABEL_STRATEGI[kode] if kode < len(LABEL_STRATEGI) else LABEL_STRATEGI[-1]
+        kpct  = None
+        if hasattr(model,"predict_proba"): kpct = float(model.predict_proba(feat)[0][kode])*100
+        return {"ok":True,"kode":kode,"strategi":label,"kpct":kpct,"detail":DESC_STRATEGI.get(label,{})}
+    except Exception as e:
+        return {"ok":False,"err":str(e)}
+
+def compute(d):
+    skor  = {k: d[k] for k in SUBTES}
+    bobot = get_bobot(d["jurusan"])
+    sw    = hitung_tw(skor, bobot)
+    rata  = float(np.mean([skor[k] for k in SUBTES]))
+    jenjang = d.get("jenjang", "S1 (Sarjana)")
+    pl,pc,ppct = hitung_peluang(sw, d["kampus"], d["jurusan"], jenjang)
+    info  = get_ptn_info(d["kampus"], d["jurusan"], jenjang)
+    gap   = sw - info["mn"]
+
+    psiko = (d["fokus"]*1.5 + d["pede"]*1.5 + (6-d["cemas"]) + (6-d["distrak"])) / 20 * 100
+    konsist = min(100, (d["jam"]*2 + d["hari"]*2.2 + d["latihan"]*1.8 + d["tryout"]*1.5 + d["review"]*1.5)*2)
+    pos = (d["fokus"]*1.5 + d["pede"]*1.5)*10
+    neg = (d["cemas"]*1.2 + d["distrak"]*1.2)*8
+    stab = max(0, min(100, pos - neg + 50))
+    rgb  = stab*0.6 + konsist*0.4
+    if rgb >= 75: risk=("Rendah","✅","Kemungkinan perform sesuai/di atas kemampuan")
+    elif rgb >= 60: risk=("Sedang","⚠️","Ada potensi fluktuasi, jaga konsistensi")
+    else: risk=("Tinggi","🔴","Risiko perform di bawah kemampuan, perlu perbaikan")
+
+    lgbm_r = predict_lgbm(lgbm_model, d) if lgbm_model else None
+    aman   = pl in ("Sangat Aman","Aman")
+    jenjang = d.get("jenjang","S1 (Sarjana)")
+    if "D3" in jenjang or d["jurusan"].startswith("D3"):
+        alt = ALTERNATIF_MAP_D3.get(d["jurusan"],[])
+    else:
+        alt = ALTERNATIF_MAP.get(d["jurusan"],[])
+
+    return {**d,"skor":skor,"bobot":bobot,"sw":sw,"rata":rata,
+            "pl":pl,"pc":pc,"ppct":ppct,"info":info,"gap":gap,
+            "psiko":psiko,"konsist":konsist,"stab":stab,"risk":risk,
+            "lgbm_r":lgbm_r,"aman":aman,"jenjang":jenjang,
+            "alternatif":alt}
+
+# ══════════════════════════════════════════════════════════
+# RENCANA BELAJAR MINGGUAN
+# ══════════════════════════════════════════════════════════
+def buat_rencana_mingguan(r, n_minggu=8):
+    skor  = r["skor"]
+    bobot = r["bobot"]
+    gap   = r["gap"]
+    sw    = r["sw"]
+    mn    = r["info"]["mn"]
+    mx    = r["info"]["mx"]
+
+    ranked = sorted(SUBTES, key=lambda k: skor[k])
+    terlemah3 = ranked[:3]
+    sedang2   = ranked[3:5]
+    terkuat2  = ranked[5:]
+
+    if gap < 0:
+        target_per_minggu = abs(gap) / n_minggu + 10
+    else:
+        target_per_minggu = (mx - sw) / n_minggu + 5 if sw < mx else 5
+
+    rencana = []
+    for w in range(1, n_minggu+1):
+        fase = "Fondasi" if w <= 2 else "Intensif" if w <= 5 else "Pemantapan" if w <= 7 else "Final"
+        target_sw = min(mx+20, sw + target_per_minggu * w)
+
+        if fase == "Fondasi":
+            tasks = [
+                f"Review konsep dasar {SUBTES_FULL[terlemah3[0]]} (skor {skor[terlemah3[0]]} → target +30)",
+                f"50 soal latihan {SUBTES_FULL[terlemah3[1]]} dengan timer",
+                f"Pelajari pola soal {SUBTES_FULL[terlemah3[2]]}",
+                "Buat catatan kesalahan (error log)",
+                "Tryout mini: 30 soal campuran + analisis",
+            ]
+            jam = "2–3 jam/hari"
+        elif fase == "Intensif":
+            subtes_minggu = terlemah3 + sedang2
+            subtes_ini = subtes_minggu[(w-3) % len(subtes_minggu)] if subtes_minggu else "PU"
+            tasks = [
+                f"100 soal latihan {SUBTES_FULL[subtes_ini]} + timer ketat",
+                "Review error log minggu sebelumnya",
+                f"Mini tryout {SUBTES_FULL[sedang2[0] if sedang2 else 'PU']} (50 soal, 45 mnt)",
+                "Simulasi 1 paket soal lengkap (90 mnt)",
+                "Analisis & rekap kesalahan pola berulang",
+            ]
+            jam = "3–4 jam/hari"
+        elif fase == "Pemantapan":
+            tasks = [
+                "Full tryout 1 paket lengkap + evaluasi",
+                f"Review intensif {SUBTES_FULL[terlemah3[0]]} (subtes fokus utama)",
+                "Latihan manajemen waktu (simulasi kondisi ujian)",
+                "Review catatan penting semua subtes",
+                "Rest day: hanya review ringan 1 jam",
+            ]
+            jam = "3–4 jam/hari (1 hari libur)"
+        else:
+            tasks = [
+                "Full tryout final + review mendalam",
+                "Revisi soal-soal sulit yang pernah salah",
+                "Persiapan mental: teknik relaksasi & tidur cukup",
+                "Cek strategi manajemen waktu ujian",
+                "Istirahat — jaga kondisi fisik & mental",
+            ]
+            jam = "2 jam/hari + istirahat cukup"
+
+        rencana.append({
+            "minggu": w, "fase": fase,
+            "target_skor": f"{target_sw:.0f}",
+            "jam": jam, "fokus": SUBTES_FULL.get(terlemah3[0],"TPS") if terlemah3 else "TPS",
+            "tasks": tasks,
+        })
+    return rencana
+
+
+# ══════════════════════════════════════════════════════════
+# CHART THEME — Light
+# ══════════════════════════════════════════════════════════
+CTH = dict(
+    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+    font=dict(family='Inter', color='#3a4a65'),
+    margin=dict(l=10, r=10, t=45, b=10)
+)
+
+def ch_radar(skor, bobot, jurusan, key=None):
+    cats  = [SUBTES_FULL[k] for k in SUBTES] + [SUBTES_FULL[SUBTES[0]]]
+    vals  = [skor[k] for k in SUBTES] + [skor[SUBTES[0]]]
+    ideal = [min(SKOR_MAX_TPS, SKOR_MAX_TPS*bobot[k]*6) for k in SUBTES] + [min(SKOR_MAX_TPS, SKOR_MAX_TPS*bobot[SUBTES[0]]*6)]
+    fig = go.Figure()
+    fig.add_trace(go.Scatterpolar(r=ideal, theta=cats, fill='toself', name='Profil Ideal Jurusan',
+        fillcolor='rgba(200,137,10,.08)', line=dict(color='#c8890a', dash='dot', width=2)))
+    fig.add_trace(go.Scatterpolar(r=vals,  theta=cats, fill='toself', name='Skor Kamu',
+        fillcolor='rgba(59,108,183,.12)', line=dict(color='#3b6cb7', width=2.5)))
+    fig.update_layout(**CTH, polar=dict(
+        bgcolor='rgba(240,244,248,.6)',
+        radialaxis=dict(range=[0,SKOR_MAX_TPS], gridcolor='#dde3ec', linecolor='#dde3ec',
+                        tickfont=dict(size=9, color='#6a7a95')),
+        angularaxis=dict(gridcolor='#dde3ec', linecolor='#dde3ec', tickfont=dict(size=9.5, color='#3a4a65'))),
+        legend=dict(bgcolor='rgba(255,255,255,.8)', orientation='h', x=.5, xanchor='center', y=-.15,
+                    font=dict(color='#3a4a65')),
+        title=dict(text=f"Radar TPS — {jurusan}", font=dict(size=13, color='#1a2540')), height=400)
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False}, key=key or ckey("radar"))
+
+def ch_bar_subtes(skor, bobot, info, key=None):
+    lbl  = [SUBTES_FULL[k] for k in SUBTES]
+    vals = [skor[k] for k in SUBTES]
+    tgt  = [min(SKOR_MAX_TPS,(info["mn"]+info["mx"])/2*bobot[k]*7) for k in SUBTES]
+    clrs = [SUBTES_CLR[k] for k in SUBTES]
+    fig  = go.Figure()
+    fig.add_trace(go.Bar(name='Skor Kamu', x=lbl, y=vals, marker_color=clrs, marker_line_width=0,
+        text=[str(v) for v in vals], textposition='outside', textfont=dict(size=10, color='#1a2540')))
+    fig.add_trace(go.Scatter(name='Target Kampus', x=lbl, y=tgt, mode='markers+lines',
+        marker=dict(symbol='diamond', size=9, color='#c8890a'),
+        line=dict(color='#c8890a', dash='dot', width=1.5)))
+    fig.update_layout(**CTH, barmode='group',
+        xaxis=dict(tickfont=dict(size=9, color='#3a4a65'), gridcolor='#dde3ec'),
+        yaxis=dict(range=[0, SKOR_MAX_TPS*1.07], gridcolor='#eef1f5', tickfont=dict(size=9, color='#3a4a65')),
+        legend=dict(bgcolor='rgba(255,255,255,.8)', orientation='h', x=.5, xanchor='center', y=-.2, font=dict(color='#3a4a65')),
+        title=dict(text="Skor Per Subtes vs Target Kampus", font=dict(size=13, color='#1a2540')), height=370)
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False}, key=key or ckey("bar"))
+
+def ch_pipeline(skor, bobot, info, jurusan, key=None):
+    lbl    = [SUBTES_FULL[k] for k in SUBTES]
+    aktual = [skor[k]*bobot[k] for k in SUBTES]
+    ideal  = [info["mn"]*bobot[k] for k in SUBTES]
+    clrs   = [SUBTES_CLR[k] for k in SUBTES]
+    fig    = go.Figure()
+    fig.add_trace(go.Bar(name='Target Min Kampus', y=lbl, x=ideal, orientation='h',
+        marker_color=['rgba(200,137,10,.12)']*7,
+        marker_line_color='#c8890a', marker_line_width=1.5))
+    fig.add_trace(go.Bar(name='Kontribusi Aktual', y=lbl, x=aktual, orientation='h',
+        marker_color=clrs, text=[f"{v:.1f}" for v in aktual],
+        textposition='inside', textfont=dict(size=10, color='#fff')))
+    fig.update_layout(**CTH, barmode='overlay',
+        xaxis=dict(title="Kontribusi ke Skor Total", gridcolor='#eef1f5',
+                   title_font=dict(color='#6a7a95'), tickfont=dict(size=9, color='#3a4a65')),
+        yaxis=dict(gridcolor='#dde3ec', tickfont=dict(size=10, color='#3a4a65')),
+        legend=dict(bgcolor='rgba(255,255,255,.8)', orientation='h', x=.5, xanchor='center', y=-.13, font=dict(color='#3a4a65')),
+        title=dict(text=f"Pipeline Kontribusi Subtes — {jurusan}", font=dict(size=13, color='#1a2540')), height=380)
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False}, key=key or ckey("pipe"))
+
+def ch_bobot(jurusan, key=None):
     bobot = get_bobot(jurusan)
-    return round(sum(scores.get(s,500)*bobot.get(s,0) for s in SUBTES), 1)
+    lbl   = [SUBTES_FULL[k] for k in SUBTES]
+    vals  = [bobot[k]*100 for k in SUBTES]
+    clrs  = [SUBTES_CLR[k] for k in SUBTES]
+    fig   = go.Figure(go.Bar(x=lbl, y=vals, marker_color=clrs, marker_line_width=0,
+        text=[f"{v:.0f}%" for v in vals], textposition='outside', textfont=dict(size=10, color='#1a2540')))
+    fig.update_layout(**CTH,
+        xaxis=dict(tickfont=dict(size=9, color='#3a4a65'), gridcolor='#dde3ec'),
+        yaxis=dict(range=[0,55], ticksuffix="%", gridcolor='#eef1f5',
+                   title="Bobot (%)", title_font=dict(color='#6a7a95'), tickfont=dict(size=9, color='#3a4a65')),
+        title=dict(text=f"Distribusi Bobot Subtes — {jurusan}", font=dict(size=13, color='#1a2540')), height=300)
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False}, key=key or ckey("bobot"))
 
-def get_target_range(ptn: str, jurusan: str):
-    info = PTN_JURUSAN_DATA.get(ptn,{})
-    p = info.get(jurusan, info.get("_default",{"mn":600,"mx":650}))
-    return p["mn"], p["mx"]
+def ch_klaster(sw, key=None):
+    kl = [("Klaster 1\nTop Tier",880,970,"#c0392b"),
+          ("Klaster 2\nMng Atas",730,870,"#d4620a"),
+          ("Klaster 3\nMenengah",600,730,"#1a8a4a"),
+          ("Klaster 4\nRegional",555,660,"#3b6cb7")]
+    fig = go.Figure()
+    for lbl,mn,mx,clr in kl:
+        r_,g_,b_ = int(clr[1:3],16),int(clr[3:5],16),int(clr[5:7],16)
+        fig.add_trace(go.Bar(x=[lbl], y=[mx-mn], base=[mn], showlegend=False,
+            marker_color=f"rgba({r_},{g_},{b_},.12)", marker_line_color=clr, marker_line_width=2,
+            text=[f"{mn}–{mx}"], textposition='inside', textfont=dict(size=10,color=clr)))
+    fig.add_hline(y=sw, line_dash="dash", line_color="#7048c8", line_width=2.5,
+        annotation_text=f"  Skor kamu: {sw:.0f}", annotation_font_color="#7048c8", annotation_font_size=11)
+    fig.update_layout(**CTH, barmode='overlay',
+        xaxis=dict(gridcolor='#dde3ec', tickfont=dict(size=10,color='#3a4a65')),
+        yaxis=dict(range=[450,SKOR_MAX_TPS], gridcolor='#eef1f5',
+                   title="Rentang Skor Aman", title_font=dict(color='#6a7a95'), tickfont=dict(size=9,color='#3a4a65')),
+        title=dict(text="Posisi Skor vs Klaster PTN", font=dict(size=13,color='#1a2540')), height=370)
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False}, key=key or ckey("klaster"))
 
-def get_klaster_ptn(ptn: str):
-    info = PTN_JURUSAN_DATA.get(ptn,{})
-    return info.get("_klaster",3), info.get("_lbl","🔹 Klaster 3")
+def ch_ptn(sw, klaster_no, jurusan, jenjang="S1 (Sarjana)", key=None):
+    if "D3" in jenjang:
+        ptn_k = {k:v for k,v in PTN_D3_DATA.items() if v.get("_klaster")==klaster_no}
+    else:
+        ptn_k = {k:v for k,v in PTN_JURUSAN_DATA.items() if v.get("_klaster")==klaster_no}
+    fig = go.Figure()
+    for nm,d in ptn_k.items():
+        short = nm.split("(")[0].strip()[:24]
+        jd = d.get(jurusan, d.get("_default", {"mn":500,"mx":600}))
+        mn_j, mx_j = jd["mn"], jd["mx"]
+        fig.add_trace(go.Bar(x=[short], y=[mx_j-mn_j], base=[mn_j], showlegend=False,
+            marker_color='rgba(59,108,183,.12)', marker_line_color='#3b6cb7', marker_line_width=1.5,
+            text=[f"{mn_j}–{mx_j}"], textposition='inside', textfont=dict(size=9,color='#1a2540')))
+    fig.add_hline(y=sw, line_dash="dash", line_color="#c8890a", line_width=2,
+        annotation_text=f"  Skor kamu: {sw:.0f}", annotation_font_color="#c8890a", annotation_font_size=11)
+    y_min = 350 if "D3" in jenjang else 450
+    jenjang_lbl2 = "D3" if "D3" in jenjang else "S1"
+    fig.update_layout(**CTH, barmode='overlay',
+        yaxis=dict(range=[y_min,SKOR_MAX_TPS], gridcolor='#eef1f5',
+                   title="Rentang Skor", title_font=dict(color='#6a7a95'), tickfont=dict(size=9,color='#3a4a65')),
+        xaxis=dict(gridcolor='#dde3ec', tickfont=dict(size=9,color='#3a4a65')),
+        title=dict(text=f"PTN Klaster {klaster_no} ({jenjang_lbl2}) — {jurusan}", font=dict(size=13,color='#1a2540')), height=320)
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False}, key=key or ckey("ptn"))
 
-def get_status(skor: float, mn: int, mx: int):
-    mid = (mn+mx)/2
-    if skor >= mx:        return "Sangat Aman","sbg-sa","🟢"
-    elif skor >= mid:     return "Aman","sbg-a","🔵"
-    elif skor >= mn:      return "Batas Aman","sbg-k","🟡"
-    elif skor >= mn-30:   return "Kurang","sbg-r","🔴"
-    else:                 return "Perlu Kerja Keras","sbg-r","⚠️"
+def ch_psiko(psiko, konsist, stab, key=None):
+    cats = ["Kesiapan Mental","Konsistensi Belajar","Stabilitas Mental"]
+    fig  = go.Figure()
+    fig.add_trace(go.Bar(x=cats, y=[psiko,konsist,stab],
+        marker_color=["#3b6cb7","#1a8a4a","#7048c8"], marker_line_width=0,
+        text=[f"{v:.0f}%" for v in [psiko,konsist,stab]],
+        textposition='outside', textfont=dict(size=11,color='#1a2540')))
+    fig.add_hline(y=80, line_dash="dot", line_color="#c8890a", line_width=1.5,
+        annotation_text="  Target 80%", annotation_font_color="#c8890a", annotation_font_size=10)
+    fig.update_layout(**CTH,
+        yaxis=dict(range=[0,115], ticksuffix="%", gridcolor='#eef1f5', tickfont=dict(size=9,color='#3a4a65')),
+        xaxis=dict(gridcolor='#dde3ec', tickfont=dict(size=10,color='#3a4a65')),
+        title=dict(text="Indikator Psikologis & Konsistensi", font=dict(size=13,color='#1a2540')), height=300)
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False}, key=key or ckey("psiko"))
 
-def hitung_peluang_pct(skor, mn, mx):
-    if skor >= mx:        return min(95, 78 + (skor-mx)/max(mx,1)*10)
-    elif skor >= (mn+mx)/2: return 65 + (skor-(mn+mx)/2)/max(mx-(mn+mx)/2,1)*12
-    elif skor >= mn:      return 50 + (skor-mn)/max((mn+mx)/2-mn,1)*14
-    elif skor >= mn-30:   return 28 + (30+skor-mn)/30*20
-    elif skor >= mn-70:   return 12 + (70+skor-mn)/70*15
-    else:                 return 6.0
+def ch_progress(r, key=None):
+    sw   = r["sw"]; mn = r["info"]["mn"]; mx = r["info"]["mx"]
+    gap  = abs(r["gap"]) if r["gap"] < 0 else 0
+    ppm  = gap/8 + 8
+    weeks = list(range(0, 9))
+    preds = [min(mx+30, sw + ppm*w) for w in weeks]
+    fig = go.Figure()
+    fig.add_hrect(y0=mn, y1=mx, fillcolor="rgba(26,138,74,.07)", layer="below",
+                  line_width=0, annotation_text="  Zona Aman", annotation_position="top right",
+                  annotation_font=dict(color="#1a8a4a", size=10))
+    fig.add_trace(go.Scatter(x=weeks, y=preds, mode='lines+markers+text',
+        line=dict(color='#3b6cb7', width=2.5),
+        marker=dict(size=8, color='#3b6cb7', line=dict(color='#ffffff', width=1.5)),
+        text=[f"{v:.0f}" for v in preds], textposition='top center',
+        textfont=dict(size=9,color='#3a4a65'), name='Proyeksi Skor'))
+    fig.add_trace(go.Scatter(x=[0], y=[sw], mode='markers',
+        marker=dict(size=12, color='#c8890a', symbol='star'),
+        name=f'Skor Sekarang ({sw:.0f})'))
+    fig.add_hline(y=mn, line_dash="dash", line_color="#d4620a", line_width=1.5,
+        annotation_text=f"  Minimum ({mn})", annotation_font_color="#d4620a", annotation_font_size=10)
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(family='Inter', color='#3a4a65'),
+        margin=dict(l=10, r=10, t=45, b=30),
+        xaxis=dict(title="Minggu ke-", tickvals=weeks, gridcolor='#eef1f5',
+                   title_font=dict(color='#6a7a95'), tickfont=dict(size=9,color='#3a4a65')),
+        yaxis=dict(range=[max(400,sw-100), min(1000,mx+60)], gridcolor='#eef1f5',
+                   title="Proyeksi Skor", title_font=dict(color='#6a7a95'), tickfont=dict(size=9,color='#3a4a65')),
+        legend=dict(bgcolor='rgba(255,255,255,.8)', font=dict(color='#3a4a65')),
+        title=dict(text="Proyeksi Skor 8 Minggu ke Depan", font=dict(size=13,color='#1a2540')),
+        height=340
+    )
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False}, key=key or ckey("prog"))
 
-def bar_html(label, val, mx, color):
-    pct = min(100, round((val-200)/(mx-200)*100))
-    return f"""<div class="prog-wrap">
-<div class="prog-lbl"><span>{label}</span><span>{val:.0f}</span></div>
-<div class="prog-bg"><div class="prog-fill" style="width:{pct}%;background:{color};"></div></div>
-</div>"""
 
-def prog_bar_html(label, val, color):
-    pct = max(0, min(100, val))
-    return f"""<div class="prog-wrap">
-<div class="prog-lbl"><span>{label}</span>
-<span style="color:{color};font-weight:800;font-family:'Space Grotesk',sans-serif">{pct:.0f}/100</span></div>
-<div class="prog-bg"><div class="prog-fill" style="width:{pct:.0f}%;background:linear-gradient(90deg,{color},{color}aa)"></div></div>
-</div>"""
+# ══════════════════════════════════════════════════════════
+# PDF EXPORT
+# ══════════════════════════════════════════════════════════
+def generate_pdf(r):
+    now  = datetime.datetime.now().strftime("%d %B %Y, %H:%M")
+    nama = r.get("nama","—")
+    jenjang_lbl = r.get("jenjang","S1 (Sarjana)")
+    bobot_rows = "".join(
+        f"<tr><td>{SUBTES_FULL[k]}</td><td>{int(r['bobot'][k]*100)}%</td>"
+        f"<td>{r['skor'][k]}</td><td>{r['skor'][k]*r['bobot'][k]:.1f}</td></tr>"
+        for k in SUBTES)
+    alt_list = ", ".join(r["alternatif"]) if r["alternatif"] else "—"
+    lgbm_txt = ""
+    if r.get("lgbm_r") and r["lgbm_r"].get("ok"):
+        h = r["lgbm_r"]
+        kp = f"{h['kpct']:.1f}%" if h.get("kpct") else "—"
+        lgbm_txt = f"<p><strong>Rekomendasi Strategi SKORIA AI:</strong> {h['strategi']} (kepercayaan: {kp})</p>"
+    rencana = buat_rencana_mingguan(r, 8)
+    minggu_html = "".join(f"""
+    <div style="margin-bottom:12px;padding:10px 14px;background:#f8fafc;border-radius:8px;border-left:3px solid #3b6cb7">
+      <div style="font-size:9pt;color:#3b6cb7;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">
+        Minggu {m['minggu']} — {m['fase']}
+      </div>
+      <div style="font-size:9.5pt;font-weight:600;color:#1e293b;margin-bottom:4px">
+        Target skor: {m['target_skor']} | {m['jam']}
+      </div>
+      <ul style="margin:0;padding-left:1.1rem;font-size:9pt;color:#374151;line-height:1.7">
+        {"".join(f"<li>{t}</li>" for t in m['tasks'])}
+      </ul>
+    </div>""" for m in rencana)
+    gc = "green" if r["gap"]>=0 else "red"
+    pc = "green" if r["ppct"]>=65 else "orange" if r["ppct"]>=35 else "red"
+    return f"""<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+<title>Laporan SKORIA — {nama}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Sora:wght@700;800&display=swap');
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:'Inter',sans-serif;font-size:11pt;color:#1e293b;background:#fff;padding:1.2cm 1.8cm}}
+h1{{font-family:'Sora',sans-serif;font-size:18pt;font-weight:800;color:#0f172a}}
+h2{{font-family:'Sora',sans-serif;font-size:11pt;font-weight:700;color:#0f172a;margin:16px 0 7px;
+    border-bottom:2px solid #3b6cb7;padding-bottom:3px}}
+p{{font-size:10pt;line-height:1.65;color:#374151;margin-bottom:5px}}
+.hdr{{background:linear-gradient(135deg,#2a4a8c,#3b6cb7);color:#fff;padding:1.1cm 1.4cm;
+      border-radius:12px;margin-bottom:.9cm}}
+.brand{{font-family:'Sora',sans-serif;font-size:12pt;font-weight:800;color:#ffd166;margin-bottom:3px}}
+.hdr .sub{{color:rgba(255,255,255,.75);font-size:9pt;margin-top:3px}}
+.kpi-row{{display:flex;gap:10px;margin-bottom:10px}}
+.kpi{{flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center}}
+.kpi .val{{font-size:18pt;font-weight:800;font-family:'Sora',sans-serif}}
+.kpi .lbl{{font-size:7.5pt;color:#64748b;text-transform:uppercase;letter-spacing:.05em}}
+.green{{color:#16a34a}}.orange{{color:#ca8a04}}.red{{color:#dc2626}}.blue{{color:#1d4ed8}}
+table{{width:100%;border-collapse:collapse;font-size:9.5pt;margin-bottom:9px}}
+th{{background:#eef3fc;text-align:left;padding:5px 9px;font-weight:600;border:1px solid #dde3ec;color:#1e293b}}
+td{{padding:5px 9px;border:1px solid #dde3ec;color:#374151}}
+tr:nth-child(even) td{{background:#f7f9fc}}
+.footer{{margin-top:.8cm;font-size:8pt;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:7px}}
+@media print{{body{{padding:.8cm 1cm}}.no-print{{display:none}}}}
+</style></head><body>
+<div class="hdr">
+  <div class="brand">🎯 SKORIA</div>
+  <h1>AI UTBK Readiness Report</h1>
+  <div class="sub">Laporan Kesiapan UTBK · {now}</div>
+</div>
+<h2>👤 Profil Siswa</h2>
+<table><tr><th>Nama</th><td>{nama}</td><th>Jenjang</th><td>{jenjang_lbl}</td></tr>
+<tr><th>Jurusan / Prodi</th><td>{r['jurusan']}</td><th>Kampus Target</th><td>{r['kampus']}</td></tr>
+<tr><th>Klaster</th><td colspan="3">{r['info']['lbl']}</td></tr></table>
+<h2>📊 Ringkasan Hasil (Skor skala 1000)</h2>
+<div class="kpi-row">
+<div class="kpi"><div class="lbl">Skor Tertimbang</div><div class="val {gc}">{r['sw']:.0f}</div><div class="lbl">dari 1000</div></div>
+<div class="kpi"><div class="lbl">Rata-rata Subtes</div><div class="val blue">{r['rata']:.0f}</div></div>
+<div class="kpi"><div class="lbl">Peluang Lolos</div><div class="val {pc}">{r['ppct']:.0f}%</div><div class="lbl">{r['pl']}</div></div>
+<div class="kpi"><div class="lbl">Gap vs Minimum</div><div class="val {gc}">{r['gap']:+.0f}</div><div class="lbl">Min {r['info']['mn']}</div></div>
+</div>
+{lgbm_txt}
+<h2>📋 Bobot & Skor Subtes</h2>
+<table><tr><th>Subtes</th><th>Bobot ({r['jurusan']})</th><th>Skor (maks 1000)</th><th>Kontribusi</th></tr>
+{bobot_rows}
+<tr style="background:#eef3fc"><th colspan="2">Total Skor Tertimbang</th><th colspan="2"><strong>{r['sw']:.1f}</strong></th></tr></table>
+<h2>🧠 Indikator Psikologis & Kebiasaan</h2>
+<table>
+<tr><th>Fokus</th><td>{r['fokus']}/5</td><th>Percaya Diri</th><td>{r['pede']}/5</td></tr>
+<tr><th>Kecemasan</th><td>{r['cemas']}/5</td><th>Distraksi</th><td>{r['distrak']}/5</td></tr>
+<tr><th>Kesiapan Mental</th><td>{r['psiko']:.0f}/100</td><th>Konsistensi</th><td>{r['konsist']:.0f}/100</td></tr>
+<tr><th>Stabilitas Mental</th><td>{r['stab']:.0f}/100</td><th>Risiko Underperform</th><td>{r['risk'][0]} {r['risk'][1]}</td></tr></table>
+<h2>🎓 Jurusan Alternatif</h2><p>{alt_list}</p>
+<h2>📅 Rencana Belajar Mingguan (8 Minggu)</h2>
+{minggu_html}
+<div class="footer">🎯 SKORIA — AI UTBK Intelligence · Data SNPMB/BPPP Kemdikbud & media pendidikan 2025/2026 · Skor skala 200–1000</div>
+<div class="no-print" style="margin-top:16px;text-align:center">
+<button onclick="window.print()" style="padding:8px 20px;background:#3b6cb7;border:none;border-radius:8px;
+  font-weight:700;cursor:pointer;font-size:11pt;font-family:'Sora',sans-serif;color:#ffffff">
+  🖨️ Print / Save as PDF</button></div>
+</body></html>"""
 
-def hitung_psiko(fokus_str, anxiety_str, motivasi_str):
-    scale = {"Rendah":1,"Sedang":2,"Tinggi":3,"Sangat Tinggi":4}
-    f = scale.get(fokus_str,2); a = scale.get(anxiety_str,2); m = scale.get(motivasi_str,2)
-    cemas_inv = 5 - a  # invert: kecemasan rendah = bagus
-    score = (f*1.8 + cemas_inv*1.5 + m*1.7) / (4*1.8+4*1.5+4*1.7) * 100
-    return round(score, 1)
 
-def hitung_konsistensi(jam_hari, hari_minggu, tryout_count, durasi_utbk):
-    # Normalize jam 0-12 → 0-5, hari 1-7 → 0-5, tryout 0-30 → 0-5
-    j_n = min(5, jam_hari/12*5)
-    h_n = min(5, hari_minggu/7*5)
-    t_n = min(5, tryout_count/30*5)
-    # Durasi bonus: lebih lama lebih baik (ada waktu memperbaiki)
-    dur_bonus = {"< 1 bulan":0,"1-2 bulan":0.5,"3-4 bulan":1.0,"5-6 bulan":1.5,"6+ bulan":2.0}
-    db = dur_bonus.get(durasi_utbk, 1.0)
-    score = min(100, (j_n*2.2 + h_n*2.0 + t_n*1.5 + db) / (5*2.2+5*2.0+5*1.5+2.0) * 100)
-    return round(score, 1)
-
-def hitung_stabilitas(fokus_str, anxiety_str, motivasi_str):
-    scale = {"Rendah":1,"Sedang":2,"Tinggi":3,"Sangat Tinggi":4}
-    f=scale.get(fokus_str,2); a=scale.get(anxiety_str,2); m=scale.get(motivasi_str,2)
-    pos = (f*1.5 + m*1.5)*12.5
-    neg = a*10
-    return round(max(0, min(100, pos - neg + 40)), 1)
-
-def hitung_risiko(stab, konsist):
-    rgb = stab*0.6 + konsist*0.4
-    if rgb >= 72: return "Rendah","✅","Kemungkinan perform sesuai atau di atas kemampuan"
-    elif rgb >= 55: return "Sedang","⚠️","Ada potensi fluktuasi, jaga konsistensi latihan"
-    else: return "Tinggi","🔴","Risiko perform di bawah kemampuan, perlu perbaikan pola belajar"
-
-def render_topbar(step:int):
-    steps=[("📋","Profil & Skor"),("🧠","Kebiasaan & Psikologis"),("📊","Hasil Analisis")]
-    pills="".join(
-        f'<span style="font-size:.72rem;font-weight:600;padding:.26rem .8rem;border-radius:99px;'
-        f'{"background:#e6f5ee;color:#148a42;border:1px solid #9adbb8;" if i+1<step else "background:#eef2fc;color:#3464c8;border:1px solid #aac0f0;" if i+1==step else "background:#f7f9fd;color:#6a7a9a;border:1px solid #e0e8f4;"}">'
-        f'{("✓ " if i+1<step else f"{i+1}. ")+s[0]+" "+s[1]}</span>'
-        for i,s in enumerate(steps))
-    st.markdown(f"""<div style="display:flex;align-items:center;gap:.8rem;background:#fff;
-    border-bottom:2px solid #e0e8f4;padding:.6rem 1.5rem;margin:-1rem -1.5rem 1.5rem;
-    position:sticky;top:0;z-index:999;box-shadow:0 2px 12px rgba(30,60,140,.07);">
-    <span style="font-family:'Space Grotesk',sans-serif;font-size:1.05rem;font-weight:800;color:#3464c8;">🎯 SKORIA</span>
-    <span style="font-size:.65rem;color:#6a7a9a;flex:1">AI UTBK Dashboard v4.0</span>
-    {pills}
+# ══════════════════════════════════════════════════════════
+# NAV BAR
+# ══════════════════════════════════════════════════════════
+def render_nav():
+    p = st.session_state.page
+    s1 = "done" if p in ["survey","result"] else "active" if p=="home" else ""
+    s2 = "done" if p=="result" else "active" if p=="survey" else ""
+    s3 = "active" if p=="result" else ""
+    st.markdown(f"""<div class="topbar">
+      <div class="topbar-brand">🎯 SKORIA <span class="topbar-tag">AI UTBK Intelligence · S1 &amp; D3 · 2025/2026</span></div>
+      <div style="flex:1"></div>
+      <div class="step-pill {s1}">{'✓' if p in ['survey','result'] else '①'} Beranda</div>
+      <div class="step-pill {s2}">{'✓' if p=='result' else '②'} Input Data</div>
+      <div class="step-pill {s3}">③ Hasil Analisis</div>
     </div>""", unsafe_allow_html=True)
 
+
 # ══════════════════════════════════════════════════════════
-# PDF GENERATION (reportlab)
+# HELPERS
 # ══════════════════════════════════════════════════════════
-def generate_pdf_bytes(r: dict) -> bytes:
-    import io
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import cm
-    from reportlab.lib import colors
-    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
-                                     TableStyle, HRFlowable, KeepTogether)
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+def prog_bar(label, val, color):
+    pct = max(0, min(100, val))
+    st.markdown(f"""<div class="prog-wrap">
+      <div class="prog-lbl"><span>{label}</span>
+        <span style="color:{color};font-weight:800;font-family:'Space Grotesk',sans-serif">{pct:.0f}/100</span></div>
+      <div class="prog-bg">
+        <div class="prog-fill" style="width:{pct:.0f}%;background:linear-gradient(90deg,{color},{color}cc)"></div>
+      </div>
+    </div>""", unsafe_allow_html=True)
 
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4,
-        leftMargin=1.8*cm, rightMargin=1.8*cm,
-        topMargin=1.8*cm, bottomMargin=1.8*cm)
+def bobot_chips(jurusan):
+    b = get_bobot(jurusan)
+    chips = "".join(
+        f'<div class="bobot-chip"><span class="sk">{k}</span><span class="bv">{int(b[k]*100)}%</span></div>'
+        for k in SUBTES)
+    st.markdown(f'<div style="display:flex;flex-wrap:wrap;gap:3px;margin:.4rem 0">{chips}</div>',
+                unsafe_allow_html=True)
 
-    # Colors
-    C_BLUE   = colors.HexColor("#3464c8")
-    C_DARK   = colors.HexColor("#12203f")
-    C_MID    = colors.HexColor("#334466")
-    C_LIGHT  = colors.HexColor("#6a7a9a")
-    C_GREEN  = colors.HexColor("#148a42")
-    C_RED    = colors.HexColor("#c0392b")
-    C_ORANGE = colors.HexColor("#d4620a")
-    C_GOLD   = colors.HexColor("#c8890a")
-    C_BG     = colors.HexColor("#eef2fc")
-    C_BGALT  = colors.HexColor("#f7f9fd")
-    C_BDR    = colors.HexColor("#e0e8f4")
-
-    styles = getSampleStyleSheet()
-    def sty(name, **kw):
-        return ParagraphStyle(name, parent=styles["Normal"], **kw)
-
-    S_H1    = sty("h1", fontName="Helvetica-Bold", fontSize=18, textColor=C_DARK, spaceAfter=4, leading=22)
-    S_H2    = sty("h2", fontName="Helvetica-Bold", fontSize=11, textColor=C_BLUE, spaceAfter=4, spaceBefore=12, leading=14)
-    S_H3    = sty("h3", fontName="Helvetica-Bold", fontSize=9.5, textColor=C_DARK, spaceAfter=2, spaceBefore=4)
-    S_BODY  = sty("body", fontSize=9, textColor=C_MID, spaceAfter=3, leading=13)
-    S_SMALL = sty("small", fontSize=7.5, textColor=C_LIGHT, spaceAfter=2)
-    S_CTR   = sty("ctr", fontSize=9, textColor=C_MID, alignment=TA_CENTER, leading=13)
-    S_BRAND = sty("brand", fontName="Helvetica-Bold", fontSize=22, textColor=colors.white,
-                  spaceAfter=2, leading=26)
-    S_SUB   = sty("sub", fontSize=8, textColor=colors.HexColor("#9ab0d8"), spaceAfter=0)
-    S_BULLET= sty("bullet", fontSize=8.5, textColor=C_MID, spaceAfter=2, leading=12,
-                  leftIndent=12, bulletIndent=2)
-
-    def hr(): return HRFlowable(width="100%", thickness=1, color=C_BDR, spaceAfter=6, spaceBefore=6)
-    def section(title):
-        return [Spacer(1,6),
-                Paragraph(title, S_H2),
-                HRFlowable(width="100%", thickness=2, color=C_BLUE, spaceAfter=6)]
-    def bullet(text):
-        return Paragraph(f"• {text}", S_BULLET)
-
-    # Tabel helper
-    TBL_STYLE = TableStyle([
-        ('BACKGROUND',(0,0),(-1,0), C_BG),
-        ('TEXTCOLOR',(0,0),(-1,0), C_DARK),
-        ('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),
-        ('FONTSIZE',(0,0),(-1,0), 8.5),
-        ('ROWBACKGROUNDS',(0,1),(-1,-1),[colors.white, C_BGALT]),
-        ('FONTSIZE',(0,1),(-1,-1), 8),
-        ('TEXTCOLOR',(0,1),(-1,-1), C_MID),
-        ('GRID',(0,0),(-1,-1), 0.5, C_BDR),
-        ('BOTTOMPADDING',(0,0),(-1,-1), 4),
-        ('TOPPADDING',(0,0),(-1,-1), 4),
-        ('LEFTPADDING',(0,0),(-1,-1), 6),
-        ('RIGHTPADDING',(0,0),(-1,-1), 6),
-    ])
-
-    story = []
-    import datetime
-    now = datetime.datetime.now().strftime("%d %B %Y, %H:%M")
-    skor = r["skor_weighted"]
-    mn = r["mn"]; mx = r["mx"]
-    gap = r["gap"]
-    nama = r["nama"]; ptn = r["ptn"]; jurusan = r["jurusan"]
-    scores = r["scores"]; sa = r["subtes_analysis"]; bobot = r["bobot"]
-    kl, kl_lbl = r["klaster"]
-    profil = r.get("profil", {})
-    psiko = r.get("psiko_score", 0)
-    konsist = r.get("konsist_score", 0)
-    stab = r.get("stab_score", 0)
-    risiko_lbl, risiko_icon, risiko_desc = r.get("risiko", ("Sedang","⚠️","—"))
-    ppct = r.get("peluang_pct", 50)
-    peluang_status = r.get("status", "Batas Aman")
-
-    # ── HEADER
-    header_data = [[
-        Paragraph("🎯 SKORIA", sty("b2", fontName="Helvetica-Bold", fontSize=20,
-                                    textColor=colors.white, leading=24)),
-        Paragraph(f"AI UTBK Readiness Report<br/><font size='8' color='#9ab0d8'>Digenerate: {now}</font>",
-                  sty("bh", fontSize=11, textColor=colors.white, leading=15))
-    ]]
-    header_tbl = Table(header_data, colWidths=[5*cm, None])
-    header_tbl.setStyle(TableStyle([
-        ('BACKGROUND',(0,0),(-1,-1), colors.HexColor("#1a3470")),
-        ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
-        ('LEFTPADDING',(0,0),(-1,-1), 14),
-        ('RIGHTPADDING',(0,0),(-1,-1), 14),
-        ('TOPPADDING',(0,0),(-1,-1), 12),
-        ('BOTTOMPADDING',(0,0),(-1,-1), 12),
-        ('ROUNDEDCORNERS',[8]),
-    ]))
-    story.append(header_tbl)
-    story.append(Spacer(1, 12))
-
-    # ── PROFIL SISWA
-    story += section("👤 Profil Siswa & Target")
-    profil_data = [
-        ["Nama", nama, "Jurusan", jurusan],
-        ["PTN Target", ptn, "Klaster PTN", kl_lbl],
-        ["Nilai Min Aman", str(mn), "Nilai Max Aman", str(mx)],
-        ["Durasi UTBK", profil.get("durasi_utbk","—"),
-         "Jam Belajar/Hari", f"{profil.get('jam_hari','?')} jam"],
-    ]
-    tbl = Table([[Paragraph(str(c), sty("tc", fontSize=8.5,
-                  fontName="Helvetica-Bold" if i%2==0 else "Helvetica",
-                  textColor=C_DARK if i%2==0 else C_MID))
-                  for i,c in enumerate(row)] for row in profil_data],
-                colWidths=[3.5*cm, 6*cm, 3.5*cm, None])
-    tbl.setStyle(TableStyle([
-        ('ROWBACKGROUNDS',(0,0),(-1,-1),[C_BG, colors.white]),
-        ('GRID',(0,0),(-1,-1),0.5,C_BDR),
-        ('LEFTPADDING',(0,0),(-1,-1),6),
-        ('RIGHTPADDING',(0,0),(-1,-1),6),
-        ('TOPPADDING',(0,0),(-1,-1),5),
-        ('BOTTOMPADDING',(0,0),(-1,-1),5),
-    ]))
-    story.append(tbl)
-    story.append(Spacer(1,8))
-
-    # ── KPI ROW
-    story += section("📊 Ringkasan Hasil")
-    gc = C_GREEN if gap <= 0 else C_RED
-    pc = C_GREEN if ppct>=65 else C_ORANGE if ppct>=45 else C_RED
-    kpi_data = [[
-        Paragraph(f"<b>Skor Tertimbang</b><br/><font size='18' color='#{C_BLUE.hexval()[2:]}'>"+
-                  f"{skor:.0f}</font><br/><font size='7.5' color='#6a7a9a'>dari 1000</font>", S_CTR),
-        Paragraph(f"<b>Peluang Lolos</b><br/><font size='18' color='#{pc.hexval()[2:]}'>"+
-                  f"{ppct:.0f}%</font><br/><font size='7.5' color='#6a7a9a'>{peluang_status}</font>", S_CTR),
-        Paragraph(f"<b>Gap vs Minimum</b><br/><font size='18' color='#{gc.hexval()[2:]}'>"+
-                  f"{gap:+.0f}</font><br/><font size='7.5' color='#6a7a9a'>Min: {mn}</font>", S_CTR),
-        Paragraph(f"<b>Risiko Underperform</b><br/><font size='14'>"+
-                  f"{risiko_icon} {risiko_lbl}</font><br/><font size='7' color='#6a7a9a'>{risiko_desc[:30]}...</font>", S_CTR),
-    ]]
-    kpi_tbl = Table(kpi_data, colWidths=[None]*4)
-    kpi_tbl.setStyle(TableStyle([
-        ('BACKGROUND',(0,0),(0,0), colors.HexColor("#eef2fc")),
-        ('BACKGROUND',(1,0),(1,0), colors.HexColor("#edfbf3")),
-        ('BACKGROUND',(2,0),(2,0), colors.HexColor("#fff7ee") if gap>0 else colors.HexColor("#edfbf3")),
-        ('BACKGROUND',(3,0),(3,0), colors.HexColor("#f3eeff")),
-        ('GRID',(0,0),(-1,-1),0.5, C_BDR),
-        ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
-        ('TOPPADDING',(0,0),(-1,-1),10),
-        ('BOTTOMPADDING',(0,0),(-1,-1),10),
-        ('ROUNDEDCORNERS',[6]),
-    ]))
-    story.append(kpi_tbl)
-    story.append(Spacer(1,8))
-
-    # ── SKOR SUBTES
-    story += section("📋 Detail Skor & Bobot Subtes")
-    header_row = ["Subtes","Nama Lengkap","Bobot","Skor","Kontribusi","Level"]
-    rows = [[
-        Paragraph(s, sty("sc", fontSize=8.5, fontName="Helvetica-Bold", textColor=colors.HexColor(SUBTES_CLR[s]))),
-        Paragraph(SUBTES_FULL[s], sty("sn", fontSize=8)),
-        Paragraph(f"{bobot[s]*100:.0f}%", sty("sb", fontSize=8.5, fontName="Helvetica-Bold", alignment=TA_CENTER)),
-        Paragraph(str(int(sa[s]["skor"])), sty("sv", fontSize=8.5, fontName="Helvetica-Bold",
-                  textColor=C_GREEN if sa[s]["skor"]>=700 else C_ORANGE if sa[s]["skor"]>=550 else C_RED,
-                  alignment=TA_CENTER)),
-        Paragraph(f"{sa[s]['kontribusi']:.1f}", sty("sk", fontSize=8, alignment=TA_CENTER)),
-        Paragraph(sa[s]["level"], sty("sl", fontSize=8, textColor=C_LIGHT)),
-    ] for s in SUBTES]
-    subtes_tbl = Table(
-        [[Paragraph(h, sty("th", fontName="Helvetica-Bold", fontSize=8.5)) for h in header_row]] + rows,
-        colWidths=[1.5*cm, 5*cm, 1.5*cm, 1.5*cm, 2.2*cm, 3*cm])
-    subtes_tbl.setStyle(TBL_STYLE)
-    story.append(subtes_tbl)
-    story.append(Spacer(1,4))
-
-    # Total row
-    total_data = [["","TOTAL SKOR TERTIMBANG","100%",
-                   Paragraph(f"<b>{skor:.1f}</b>", sty("tot",fontName="Helvetica-Bold",
-                   fontSize=10, textColor=C_GREEN if gap<=0 else C_ORANGE)),"",""]]
-    tot_tbl = Table(total_data, colWidths=[1.5*cm, 5*cm, 1.5*cm, 1.5*cm, 2.2*cm, 3*cm])
-    tot_tbl.setStyle(TableStyle([
-        ('BACKGROUND',(0,0),(-1,-1), C_BG),
-        ('FONTNAME',(0,0),(-1,-1),'Helvetica-Bold'),
-        ('FONTSIZE',(0,0),(-1,-1),8.5),
-        ('GRID',(0,0),(-1,-1),0.5,C_BDR),
-        ('BOTTOMPADDING',(0,0),(-1,-1),5),
-        ('TOPPADDING',(0,0),(-1,-1),5),
-        ('LEFTPADDING',(0,0),(-1,-1),6),
-        ('RIGHTPADDING',(0,0),(-1,-1),6),
-        ('SPAN',(0,0),(0,0)),
-    ]))
-    story.append(tot_tbl)
-
-    # ── INDIKATOR PSIKOLOGIS
-    story += section("🧠 Indikator Psikologis & Kebiasaan Belajar")
-    psy_data = [
-        ["Indikator","Nilai","Keterangan"],
-        ["Kesiapan Mental",f"{psiko:.0f}/100","Fokus, motivasi, dan manajemen kecemasan"],
-        ["Konsistensi Belajar",f"{konsist:.0f}/100","Frekuensi & durasi latihan harian"],
-        ["Stabilitas Mental",f"{stab:.0f}/100","Kemampuan menjaga performa stabil"],
-        ["Risiko Underperform",f"{risiko_icon} {risiko_lbl}", risiko_desc],
-        ["Fokus",profil.get("fokus","—"),"Kemampuan berkonsentrasi saat belajar"],
-        ["Kecemasan Ujian",profil.get("anxiety","—"),"Rendah = lebih baik"],
-        ["Motivasi",profil.get("motivasi","—"),"Dorongan untuk mencapai target"],
-        ["Durasi UTBK",profil.get("durasi_utbk","—"),"Waktu tersisa untuk persiapan"],
-        ["Jam Belajar/Hari",f"{profil.get('jam_hari','?')} jam","Rata-rata waktu belajar per hari"],
-        ["Hari Belajar/Minggu",f"{profil.get('hari_minggu','?')} hari","Konsistensi per minggu"],
-        ["Tryout Dilakukan",f"{profil.get('tryout_count','?')} kali","Pengalaman simulasi ujian"],
-    ]
-    psy_tbl = Table([[Paragraph(str(c), sty("pc", fontSize=8.5,
-                      fontName="Helvetica-Bold" if i==0 else "Helvetica",
-                      textColor=C_DARK if i==0 else C_MID))
-                      for i,c in enumerate(row)] for row in psy_data],
-                    colWidths=[4.5*cm, 3*cm, None])
-    psy_tbl.setStyle(TBL_STYLE)
-    story.append(psy_tbl)
-
-    # ── ANALISIS TARGET
-    story += section("🎯 Analisis Target & Rekomendasi Jurusan Alternatif")
-    alt_same = r.get("alternatif_same_ptn", [])
-    alt_diff  = r.get("alternatif_diff_ptn", [])
-
-    story.append(Paragraph(f"Jurusan Alternatif di {ptn}:", S_H3))
-    if alt_same:
-        alt_rows = [["Jurusan","Min Aman","Max Aman","Skor Kamu","Status"]]
-        for a in alt_same:
-            mn_a, mx_a = get_target_range(ptn, a)
-            st_a, _, ic_a = get_status(skor, mn_a, mx_a)
-            alt_rows.append([a, str(mn_a), str(mx_a), f"{skor:.0f}", f"{ic_a} {st_a}"])
-        alt_tbl = Table([[Paragraph(c, sty("at", fontSize=8, fontName="Helvetica-Bold" if i==0 else "Helvetica"))
-                          for i,c in enumerate(row)] for row in alt_rows],
-                        colWidths=[5*cm,2*cm,2*cm,2.5*cm,None])
-        alt_tbl.setStyle(TBL_STYLE)
-        story.append(alt_tbl)
-    else:
-        story.append(Paragraph("(Tidak tersedia)", S_BODY))
-    story.append(Spacer(1,6))
-
-    story.append(Paragraph("Jurusan Alternatif di PTN Lain (Realistis):", S_H3))
-    if alt_diff:
-        altd_rows = [["Jurusan","PTN","Klaster","Min","Max","Status"]]
-        for item in alt_diff[:8]:
-            altd_rows.append([item["jurusan"],item["ptn"][:28],item["kl_lbl"],
-                              str(item["mn"]),str(item["mx"]),f"{item['icon']} {item['status']}"])
-        altd_tbl = Table([[Paragraph(c, sty("adt", fontSize=8, fontName="Helvetica-Bold" if i==0 else "Helvetica"))
-                           for i,c in enumerate(row)] for row in altd_rows],
-                         colWidths=[3.5*cm, 4*cm, 3*cm, 1.2*cm, 1.2*cm, None])
-        altd_tbl.setStyle(TBL_STYLE)
-        story.append(altd_tbl)
-    else:
-        story.append(Paragraph("(Tidak tersedia)", S_BODY))
-
-    # ── REKOMENDASI
-    story += section("💡 Rekomendasi Personal")
-    for kind, title, pts in r.get("rekom", []):
-        icon_map={"strength":"✅","weakness":"⚠️","danger":"🔴","info":"ℹ️","success":"🎉"}
-        story.append(Paragraph(f"{icon_map.get(kind,'💡')} {title}", S_H3))
-        for p in pts:
-            story.append(bullet(p))
-        story.append(Spacer(1,4))
-
-    # ── STUDY PLAN
-    story += section("📅 Rencana Belajar Mingguan Detail")
-    plan = r.get("plan", [])
-    fase_colors = {"Fondasi":"#3464c8","Intensif":"#d4620a","Pemantapan":"#148a42","Final":"#c8890a"}
-    for item in plan:
-        period = item["period"]; fase = item["fase"]
-        target = item["target"]; jam_label = item["jam"]
-        tasks = item["tasks"]
-        clr = fase_colors.get(fase,"#6b3fca")
-        c_obj = colors.HexColor(clr)
-        week_data = [[
-            Paragraph(f"<b>{period}</b> — <font color='{clr}'>{fase.upper()}</font>", sty("wt",fontSize=9)),
-            Paragraph(f"🎯 Target: <b>{target}</b> &nbsp;&nbsp; ⏰ {jam_label}", sty("wd",fontSize=8.5))
-        ]]
-        week_tbl = Table(week_data, colWidths=[5*cm, None])
-        week_tbl.setStyle(TableStyle([
-            ('BACKGROUND',(0,0),(-1,-1), colors.HexColor(clr+"22")),
-            ('LEFTBORDER',(0,0),(0,-1), 4, c_obj),
-            ('GRID',(0,0),(-1,-1),0.3,C_BDR),
-            ('LEFTPADDING',(0,0),(-1,-1),8),
-            ('RIGHTPADDING',(0,0),(-1,-1),8),
-            ('TOPPADDING',(0,0),(-1,-1),5),
-            ('BOTTOMPADDING',(0,0),(-1,-1),5),
-        ]))
-        tasks_items = [bullet(t) for t in tasks]
-        story.append(KeepTogether([week_tbl, Spacer(1,2)] + tasks_items + [Spacer(1,6)]))
-
-    # ── FOOTER
-    story.append(hr())
-    story.append(Paragraph(
-        "🎯 SKORIA v4.0 — AI UTBK Intelligence · Data SNPMB/BPPP Kemdikbud & Estimasi Historis 2022–2024 · Skor skala 200–1000",
-        sty("foot", fontSize=7, textColor=C_LIGHT, alignment=TA_CENTER)))
-
-    doc.build(story)
-    return buf.getvalue()
+def step_bar(cur):
+    steps = ["👤 Profil, Jenjang & Target","📊 Skor TPS","🧠 Psikologis","📚 Kebiasaan Belajar"]
+    html  = '<div class="step-row">'
+    for i,s in enumerate(steps,1):
+        cls = "active" if i==cur else "done" if i<cur else ""
+        mk  = "✓" if i<cur else str(i)
+        html += f'<div class="step-item {cls}"><span class="step-num">{mk}</span>{s}</div>'
+    st.markdown(html+"</div>", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════
 # PAGE: HOME
 # ══════════════════════════════════════════════════════════
 def page_home():
+    # ── Animated Ticker ──
+    st.markdown("""
+    <div class="ticker-wrap">
+      <div class="ticker-inner">
+        <span class="ticker-item">🎯 SKORIA v4.0 — AI UTBK Intelligence</span>
+        <span class="ticker-item">📊 Data SNPMB/BPPP Kemdikbud <span>2025/2026</span></span>
+        <span class="ticker-item">🎓 Jenjang <span>S1 Sarjana</span> &amp; <span>D3 Vokasi</span></span>
+        <span class="ticker-item">🏛️ <span>18 PTN</span> — Klaster 1 hingga 4</span>
+        <span class="ticker-item">📚 <span>34+</span> Jurusan S1 · <span>30+</span> Prodi D3</span>
+        <span class="ticker-item">🤖 Powered by <span>LightGBM AI</span></span>
+        <span class="ticker-item">📅 Rencana Belajar <span>8 Minggu</span> Personal</span>
+        <span class="ticker-item">🎯 SKORIA v4.0 — AI UTBK Intelligence</span>
+        <span class="ticker-item">📊 Data SNPMB/BPPP Kemdikbud <span>2025/2026</span></span>
+        <span class="ticker-item">🎓 Jenjang <span>S1 Sarjana</span> &amp; <span>D3 Vokasi</span></span>
+        <span class="ticker-item">🏛️ <span>18 PTN</span> — Klaster 1 hingga 4</span>
+        <span class="ticker-item">📚 <span>34+</span> Jurusan S1 · <span>30+</span> Prodi D3</span>
+        <span class="ticker-item">🤖 Powered by <span>LightGBM AI</span></span>
+        <span class="ticker-item">📅 Rencana Belajar <span>8 Minggu</span> Personal</span>
+      </div>
+    </div>""", unsafe_allow_html=True)
+
+    # ── Hero ──
     st.markdown("""<div class="hero">
-    <div class="hero-badge">🤖 AI-Powered · 30 PTN · 60 Prodi · Data SNPMB 2022–2024</div>
-    <h1>🎯 SKORIA <span>v4.0</span></h1>
-    <p>Platform kecerdasan buatan untuk analisis kesiapan UTBK-SNBT secara holistik.<br>
-    Masukkan estimasi skor 7 subtes TPS dan dapatkan analisis mendalam beserta strategi belajar personal.</p>
+      <div class="hero-badge">🚀 v4.0 · S1 &amp; D3 · 18 PTN · 64+ Program Studi</div>
+      <h1>SKORIA — Analisis Kesiapan<br><span>UTBK</span> Berbasis AI</h1>
+      <p>Platform kecerdasan buatan untuk memahami peluang, gap skor, dan strategi belajar<br>
+         yang dipersonalisasi. Data skor S1 &amp; D3 berbasis SNPMB/BPPP Kemdikbud 2025/2026.</p>
     </div>""", unsafe_allow_html=True)
 
+    # ── Animated Stat Counters ──
     st.markdown("""<div class="stat-row">
-    <div class="stat-box"><div class="stat-num">30</div><div class="stat-lbl">PTN Terkemuka</div></div>
-    <div class="stat-box"><div class="stat-num">60</div><div class="stat-lbl">Program Studi</div></div>
-    <div class="stat-box"><div class="stat-num">7</div><div class="stat-lbl">Subtes TPS</div></div>
-    <div class="stat-box"><div class="stat-num">AI</div><div class="stat-lbl">Analisis Cerdas</div></div>
+      <div class="stat-box">
+        <div class="stat-num">18</div>
+        <div class="stat-lbl">🏛️ PTN Terkover</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num">64+</div>
+        <div class="stat-lbl">📚 Program Studi</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num">7</div>
+        <div class="stat-lbl">📊 Subtes TPS</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num">8</div>
+        <div class="stat-lbl">📅 Minggu Belajar</div>
+      </div>
     </div>""", unsafe_allow_html=True)
 
+    # ── Feature Cards ──
     st.markdown("""<div class="feat-grid">
-    <div class="feat-card"><span class="feat-icon">📊</span>
-    <div class="feat-title">Analisis 7 Subtes</div>
-    <div class="feat-desc">Evaluasi mendalam PU, PPU, PBM, PK, LBI, LBE, PM dengan bobot per jurusan</div></div>
-    <div class="feat-card"><span class="feat-icon">🎯</span>
-    <div class="feat-title">30 PTN & 60 Prodi</div>
-    <div class="feat-desc">Data estimasi nilai aman dari historis UTBK 2022-2024 sumber terpercaya</div></div>
-    <div class="feat-card"><span class="feat-icon">🤖</span>
-    <div class="feat-title">Rekomendasi AI</div>
-    <div class="feat-desc">Strategi belajar personal berbasis analisis profil skor dan kondisi psikologis</div></div>
-    <div class="feat-card"><span class="feat-icon">📄</span>
-    <div class="feat-title">Export PDF</div>
-    <div class="feat-desc">Download laporan lengkap PDF — analisis, study plan 8 minggu, rekomendasi</div></div>
+      <div class="feat-card d1">
+        <span class="feat-icon">📡</span>
+        <div class="feat-title">Radar Chart TPS</div>
+        <div class="feat-desc">Visualisasi 7 subtes vs profil ideal jurusan yang dipilih</div>
+      </div>
+      <div class="feat-card d2">
+        <span class="feat-icon">🎓</span>
+        <div class="feat-title">S1 &amp; D3 Support</div>
+        <div class="feat-desc">Skor aman per jenjang, jurusan &amp; PTN berbasis SNPMB 2025/2026</div>
+      </div>
+      <div class="feat-card d3">
+        <span class="feat-icon">🤖</span>
+        <div class="feat-title">AI LightGBM</div>
+        <div class="feat-desc">Prediksi strategi belajar otomatis dari model machine learning</div>
+      </div>
+      <div class="feat-card d4">
+        <span class="feat-icon">📄</span>
+        <div class="feat-title">Export PDF</div>
+        <div class="feat-desc">Laporan lengkap 8 minggu terstruktur siap cetak</div>
+      </div>
     </div>""", unsafe_allow_html=True)
 
+    # ── Animated divider ──
+    st.markdown('<div class="anim-div"></div>', unsafe_allow_html=True)
+
+    # ── About section ──
+    st.markdown('<div class="sec">🤖 Tentang SKORIA</div>', unsafe_allow_html=True)
     st.markdown("""<div class="al al-i">
-    <h4>ℹ️ Tentang Data</h4>
-    Data estimasi nilai aman bersumber dari historis UTBK-SNBT 2022–2024 yang dikompilasi dari
-    bocahkampus.com, quipper.com, tipskuliah.com, cerebrum.id, dan studiliv.com.
-    Data resmi: <b>snpmb.bppp.kemdikbud.go.id</b>.
-    Nilai aktual dapat berbeda tergantung tahun dan jumlah peminat.
+      <h4>SKORIA — Score Intelligence for UTBK</h4>
+      Platform SKORIA mengintegrasikan <strong>Model LightGBM</strong> dengan analisis holistik:
+      <ul>
+        <li>🎓 <strong>Support jenjang S1 (Sarjana) &amp; D3 (Diploma Tiga)</strong> — 30+ prodi D3 dari 18 PTN</li>
+        <li>📊 Skor aman per jurusan, jenjang, &amp; PTN berbasis <strong>SNPMB/BPPP Kemdikbud 2025/2026</strong></li>
+        <li>🧠 Evaluasi psikologis: fokus, percaya diri, kecemasan, distraksi</li>
+        <li>📡 Radar Chart, Bar Chart, Pipeline Kontribusi, Klaster PTN</li>
+        <li>📅 Rencana belajar mingguan 8 minggu dengan target terukur</li>
+        <li>📄 Export PDF lengkap · 🎯 Gap analysis berbasis klaster PTN</li>
+      </ul>
     </div>""", unsafe_allow_html=True)
 
-    col1,col2,col3=st.columns([1,2,1])
-    with col2:
-        if st.button("🚀 Mulai Analisis Sekarang",type="primary",use_container_width=True,key="btn_home_start"):
+    ai_status = f'<div class="al al-s"><h4>✅ Model AI Aktif</h4>File: <code>{lgbm_fname}</code> — Prediksi strategi belajar siap digunakan.</div>' if lgbm_model else '<div class="al al-w"><h4>⚠️ Model AI Tidak Ditemukan</h4>Letakkan <code>lgbm_model_2_.pkl</code> di folder yang sama. Kalkulasi manual tetap berjalan.</div>'
+    st.markdown(ai_status, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    col_cta, col_info = st.columns([2,3])
+    with col_cta:
+        if st.button("🚀  Mulai Analisis UTBK Sekarang", type="primary", use_container_width=True):
             st.session_state.page="survey"; st.session_state.step=1; st.rerun()
-
-# ══════════════════════════════════════════════════════════
-# PAGE: SURVEY (2 STEPS — sesuai uploaded app.py)
-# ══════════════════════════════════════════════════════════
-def page_survey():
-    render_topbar(st.session_state.step)
-    d = st.session_state.data
-
-    # ── STEP 1: Profil, Target PTN/Jurusan, Skor TPS
-    if st.session_state.step == 1:
-        st.markdown('<div class="sec">📋 Langkah 1: Profil & Skor TPS</div>', unsafe_allow_html=True)
-
-        # ─ Info Dasar
-        st.markdown('<div class="form-box"><h3>👤 Data Diri & Target</h3>', unsafe_allow_html=True)
-        col1,col2 = st.columns(2)
-        with col1:
-            nama=st.text_input("Nama / Inisial",value=d.get("nama",""),key="inp_nama",placeholder="Nama kamu...")
-            ptn=st.selectbox("Target PTN",DAFTAR_PTN,index=DAFTAR_PTN.index(d.get("ptn",DAFTAR_PTN[0])),key="inp_ptn")
-        with col2:
-            jurusan=st.selectbox("Target Jurusan/Prodi",DAFTAR_JURUSAN_S1,
-                index=DAFTAR_JURUSAN_S1.index(d.get("jurusan",DAFTAR_JURUSAN_S1[0])),key="inp_jurusan")
-            asal=st.text_input("Asal Sekolah (opsional)",value=d.get("asal",""),key="inp_asal")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        if ptn and jurusan:
-            mn,mx = get_target_range(ptn,jurusan)
-            kl,kl_lbl = get_klaster_ptn(ptn)
-            st.markdown(f"""<div class="al al-i">
-            <h4>🎯 {jurusan} — {ptn}</h4>
-            <b>Klaster:</b> {kl_lbl} &nbsp;|&nbsp;
-            <b>Estimasi nilai aman:</b> {mn}–{mx} &nbsp;|&nbsp;
-            <b>Nilai tengah:</b> {(mn+mx)//2}
-            </div>""", unsafe_allow_html=True)
-
-        # ─ Skor TPS
-        st.markdown('<div class="sec">📊 Skor 7 Subtes TPS</div>', unsafe_allow_html=True)
-        st.markdown("""<div class="al al-i"><h4>ℹ️ Panduan Input</h4>
-        Masukkan <b>estimasi skor</b> berdasarkan tryout atau perkiraanmu. Skala: <b>200–1000</b> per subtes.
+    with col_info:
+        st.markdown("""<div style="padding:.7rem 0;font-size:.81rem;color:#6a7a9a;line-height:1.8">
+          ⏱ Waktu pengisian: ~5 menit &nbsp;·&nbsp; 🔒 Data tidak tersimpan &nbsp;·&nbsp; 📱 Mobile friendly
         </div>""", unsafe_allow_html=True)
 
-        scores = d.get("scores", {s:500 for s in SUBTES})
-        new_scores = {}
-        cola,colb = st.columns(2)
-        with cola:
-            st.markdown('<div class="form-box"><h3>🧠 TPS Sains & Penalaran</h3>', unsafe_allow_html=True)
-            for s in ["PU","PPU","PBM","PK"]:
-                new_scores[s]=st.number_input(f"{s} — {SUBTES_FULL[s]}",min_value=200,max_value=1000,
-                    value=int(scores.get(s,500)),step=5,key=f"inp_{s}")
-            st.markdown('</div>', unsafe_allow_html=True)
-        with colb:
-            st.markdown('<div class="form-box"><h3>📚 Literasi & Matematika</h3>', unsafe_allow_html=True)
-            for s in ["LBI","LBE","PM"]:
-                new_scores[s]=st.number_input(f"{s} — {SUBTES_FULL[s]}",min_value=200,max_value=1000,
-                    value=int(scores.get(s,500)),step=5,key=f"inp_{s}")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        col1,col2=st.columns(2)
-        with col1:
-            if st.button("← Beranda",key="btn_s1_back"): st.session_state.page="home"; st.rerun()
-        with col2:
-            if st.button("Lanjut: Kebiasaan & Psikologis →",type="primary",use_container_width=True,key="btn_s1_next"):
-                if not nama: st.warning("Masukkan nama terlebih dahulu.")
-                else:
-                    d.update({"nama":nama,"ptn":ptn,"jurusan":jurusan,"asal":asal,"scores":new_scores})
-                    st.session_state.step=2; st.rerun()
-
-    # ── STEP 2: Kebiasaan Belajar + Psikologis (sesuai uploaded app.py)
-    elif st.session_state.step == 2:
-        st.markdown('<div class="sec">🧠 Langkah 2: Kebiasaan Belajar & Psikologis</div>', unsafe_allow_html=True)
-
-        # Kebiasaan Belajar — mirip uploaded app.py step 3 (Kebiasaan) + step 4 (Psikologis)
-        st.markdown('<div class="form-box"><h3>📚 Kebiasaan Belajar</h3>', unsafe_allow_html=True)
-        col1,col2,col3=st.columns(3)
-        with col1:
-            jam_hari=st.slider("⏰ Jam belajar/hari",0,12,int(d.get("jam_hari",4)),key="inp_jam",
-                help="Rata-rata jam belajar per hari")
-        with col2:
-            hari_minggu=st.slider("📅 Hari belajar/minggu",1,7,int(d.get("hari_minggu",5)),key="inp_hari",
-                help="Berapa hari dalam seminggu kamu belajar")
-        with col3:
-            tryout_count=st.slider("📝 Jumlah tryout (total)",0,30,int(d.get("tryout_count",3)),key="inp_tryout",
-                help="Total tryout yang sudah pernah dilakukan")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # Psikologis & Waktu
-        st.markdown('<div class="form-box"><h3>🧠 Kondisi Psikologis & Waktu</h3>', unsafe_allow_html=True)
-        col1,col2=st.columns(2)
-        opts_level=["Rendah","Sedang","Tinggi","Sangat Tinggi"]
-        with col1:
-            fokus=st.select_slider("🎯 Tingkat Fokus",opts_level,value=d.get("fokus","Tinggi"),key="inp_fokus",
-                help="Kemampuanmu untuk fokus dan berkonsentrasi saat belajar")
-            anxiety=st.select_slider("😰 Tingkat Kecemasan Ujian",opts_level,value=d.get("anxiety","Sedang"),key="inp_anxiety",
-                help="Rendah = lebih baik. Seberapa cemas kamu menghadapi ujian")
-        with col2:
-            motivasi=st.select_slider("💪 Tingkat Motivasi",opts_level,value=d.get("motivasi","Tinggi"),key="inp_motivasi",
-                help="Seberapa kuat doronganmu untuk mencapai target PTN")
-            durasi_utbk=st.selectbox("📆 Berapa bulan lagi UTBK?",
-                ["< 1 bulan","1-2 bulan","3-4 bulan","5-6 bulan","6+ bulan"],
-                index=["< 1 bulan","1-2 bulan","3-4 bulan","5-6 bulan","6+ bulan"].index(d.get("durasi_utbk","3-4 bulan")),
-                key="inp_durasi",
-                help="Sisa waktu persiapan UTBK. Berpengaruh pada strategi belajar")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # Preview indikator real-time
-        psiko_prev = hitung_psiko(fokus, anxiety, motivasi)
-        konsist_prev = hitung_konsistensi(jam_hari, hari_minggu, tryout_count, durasi_utbk)
-        stab_prev = hitung_stabilitas(fokus, anxiety, motivasi)
-        col_p1,col_p2,col_p3 = st.columns(3)
-        with col_p1:
-            pc_color = "#148a42" if psiko_prev>=65 else "#d4900a" if psiko_prev>=45 else "#c0392b"
-            st.markdown(prog_bar_html(f"🧠 Kesiapan Mental",psiko_prev,pc_color), unsafe_allow_html=True)
-        with col_p2:
-            kc_color = "#148a42" if konsist_prev>=65 else "#d4900a" if konsist_prev>=45 else "#c0392b"
-            st.markdown(prog_bar_html(f"📚 Konsistensi Belajar",konsist_prev,kc_color), unsafe_allow_html=True)
-        with col_p3:
-            sc_color = "#148a42" if stab_prev>=65 else "#d4900a" if stab_prev>=45 else "#c0392b"
-            st.markdown(prog_bar_html(f"⚖️ Stabilitas Mental",stab_prev,sc_color), unsafe_allow_html=True)
-
-        col1,_,col3=st.columns(3)
-        with col1:
-            if st.button("← Kembali",key="btn_s2_back"): st.session_state.step=1; st.rerun()
-        with col3:
-            if st.button("🚀 Analisis Sekarang!",type="primary",use_container_width=True,key="btn_s2_next"):
-                d.update({"jam_hari":jam_hari,"hari_minggu":hari_minggu,"tryout_count":tryout_count,
-                          "fokus":fokus,"anxiety":anxiety,"motivasi":motivasi,"durasi_utbk":durasi_utbk})
-                st.session_state.result=run_analysis(d)
-                st.session_state.page="result"; st.rerun()
-
 
 # ══════════════════════════════════════════════════════════
-# ANALYSIS ENGINE
+# PAGE: SURVEY (4 STEPS)
 # ══════════════════════════════════════════════════════════
-def build_alternatif_diff_ptn(jurusan, skor_w, ptn_asli, limit=8):
-    """Cari jurusan yang sama di PTN lain yang realistis (status Aman/Batas Aman)"""
-    results = []
-    for p in DAFTAR_PTN:
-        if p == ptn_asli: continue
-        mn_p, mx_p = get_target_range(p, jurusan)
-        st_p, _, ic_p = get_status(skor_w, mn_p, mx_p)
-        kl_p, kl_lbl_p = get_klaster_ptn(p)
-        if st_p in ("Sangat Aman","Aman","Batas Aman"):
-            results.append({
-                "jurusan": jurusan, "ptn": p, "mn": mn_p, "mx": mx_p,
-                "status": st_p, "icon": ic_p, "kl_lbl": kl_lbl_p, "kl": kl_p
-            })
-    # Sort: Sangat Aman > Aman > Batas Aman, kemudian klaster tertinggi (terbaik)
-    order = {"Sangat Aman":0,"Aman":1,"Batas Aman":2}
-    results.sort(key=lambda x: (order.get(x["status"],9), x["kl"]))
-    return results[:limit]
+def step1():
+    # Animated step intro
+    st.markdown("""<div class="al al-i d1" style="margin-bottom:1rem;padding:.8rem 1.2rem">
+      <h4>👤 Langkah 1 dari 4 — Profil &amp; Target</h4>
+      Pilih jenjang, jurusan, dan kampus yang kamu tuju. Skor aman akan ditampilkan secara langsung.
+    </div>""", unsafe_allow_html=True)
+    st.markdown('<div class="form-box">', unsafe_allow_html=True)
+    st.markdown('<h3>👤 Profil &amp; Target</h3>', unsafe_allow_html=True)
+    d = st.session_state.data
+    nama    = st.text_input("Nama Lengkap", value=d.get("nama",""), placeholder="Nama kamu...")
 
-def build_alternatif_same_ptn(jurusan, ptn, skor_w):
-    """Jurusan alternatif di PTN yang sama"""
-    return ALTERNATIF_MAP.get(jurusan, [])
+    # Jenjang selector
+    prev_jenjang = d.get("jenjang", DAFTAR_JENJANG[0])
+    jenjang = st.radio(
+        "🎓 Jenjang yang Dituju",
+        DAFTAR_JENJANG,
+        index=DAFTAR_JENJANG.index(prev_jenjang),
+        horizontal=True,
+        help="S1 = Sarjana (4 tahun) | D3 = Diploma Tiga (3 tahun, program vokasi)"
+    )
 
-def run_analysis(d: dict) -> dict:
-    scores = d.get("scores", {}); jurusan = d.get("jurusan","Teknik Informatika"); ptn = d.get("ptn","Universitas Indonesia")
-    skor_w = hitung_skor_weighted(scores, jurusan)
-    mn, mx = get_target_range(ptn, jurusan); mid = (mn+mx)/2
-    status, badge_cls, icon = get_status(skor_w, mn, mx)
-    bobot = get_bobot(jurusan)
-    sa = {}
-    for s in SUBTES:
-        sc = scores.get(s,500); w = bobot[s]; kontribusi = sc*w
-        level = "Unggul" if sc>=750 else "Baik" if sc>=650 else "Cukup" if sc>=550 else "Perlu Ditingkatkan" if sc>=450 else "Lemah"
-        sa[s] = {"skor":sc,"bobot":w,"kontribusi":kontribusi,"level":level}
-    sorted_s = sorted(sa.items(), key=lambda x: x[1]["kontribusi"])
-    weak_2 = [s for s,_ in sorted_s[:2]]; strong_2 = [s for s,_ in sorted_s[-2:]]
+    # Jurusan dinamis berdasarkan jenjang
+    daftar_j = get_daftar_jurusan(jenjang)
+    prev_jurusan = d.get("jurusan", daftar_j[0])
+    if prev_jurusan not in daftar_j:
+        prev_jurusan = daftar_j[0]
+    jurusan = st.selectbox(
+        "🏫 Target Jurusan / Program Studi",
+        daftar_j,
+        index=daftar_j.index(prev_jurusan),
+        help="Pilih program studi yang kamu tuju"
+    )
 
-    # Psikologis
-    fokus = d.get("fokus","Tinggi"); anxiety = d.get("anxiety","Sedang"); motivasi = d.get("motivasi","Tinggi")
-    jam_hari = d.get("jam_hari",4); hari_minggu = d.get("hari_minggu",5)
-    tryout_count = d.get("tryout_count",3); durasi_utbk = d.get("durasi_utbk","3-4 bulan")
+    kampus  = st.selectbox("🏛️ Target Kampus (PTN)", DAFTAR_PTN,
+                           index=DAFTAR_PTN.index(d.get("kampus",DAFTAR_PTN[0])))
 
-    psiko = hitung_psiko(fokus, anxiety, motivasi)
-    konsist = hitung_konsistensi(jam_hari, hari_minggu, tryout_count, durasi_utbk)
-    stab = hitung_stabilitas(fokus, anxiety, motivasi)
-    risiko = hitung_risiko(stab, konsist)
-    ppct = hitung_peluang_pct(skor_w, mn, mx)
-
-    # Alternatif
-    alt_same = build_alternatif_same_ptn(jurusan, ptn, skor_w)
-    alt_diff  = build_alternatif_diff_ptn(jurusan, skor_w, ptn)
-
-    plan = gen_plan(d, weak_2, mn-skor_w, sa)
-    rekom = gen_rekom(d, sa, weak_2, strong_2, mn-skor_w)
-
-    return {
-        "nama":d.get("nama",""),"ptn":ptn,"jurusan":jurusan,"skor_weighted":skor_w,
-        "scores":scores,"mn":mn,"mx":mx,"mid":mid,"status":status,"badge_cls":badge_cls,"icon":icon,
-        "gap":mn-skor_w,"subtes_analysis":sa,"bobot":bobot,"weak_2":weak_2,"strong_2":strong_2,
-        "alternatif":alt_same,"alternatif_same_ptn":alt_same,"alternatif_diff_ptn":alt_diff,
-        "plan":plan,"rekom":rekom,"klaster":get_klaster_ptn(ptn),"profil":d,
-        "psiko_score":psiko,"konsist_score":konsist,"stab_score":stab,"risiko":risiko,"peluang_pct":ppct,
-    }
-
-def gen_plan(d, weak_2, gap, sa):
-    dur = d.get("durasi_utbk","3-4 bulan")
-    jam = d.get("jam_hari",4)
-    wn = [SUBTES_FULL[s] for s in weak_2]
-    ws = [sa[s]["skor"] for s in weak_2]
-
-    # Jam belajar label
-    jam_lbl = f"{max(2,jam)} jam/hari" if jam >= 2 else "1-2 jam/hari (tingkatkan!)"
-
-    if dur in ["< 1 bulan","1-2 bulan"]:
-        return [
-            {"period":"Minggu 1","fase":"Fondasi","target":"Identifikasi gap & pola soal",
-             "jam": jam_lbl,
-             "tasks":[
-                f"Tryout diagnostic lengkap (150 soal, 2.5 jam) — catat waktu per subtes",
-                f"Review mendalam {wn[0]} (skor {ws[0]:.0f}): pelajari tipe soal yang sering salah",
-                f"Review mendalam {wn[1]} (skor {ws[1]:.0f}): buat pola kesalahan",
-                "Buat error log: catat setiap soal salah + alasan kesalahan",
-                "Target: pahami 80% tipe soal yang sering muncul di UTBK",
-             ]},
-            {"period":"Minggu 2","fase":"Intensif","target":f"Fokus {wn[0]} +30 poin",
-             "jam": jam_lbl,
-             "tasks":[
-                f"100 soal {wn[0]} per hari dengan timer ketat (per soal ≤90 detik)",
-                f"Review error log {wn[0]} — identifikasi pola kesalahan berulang",
-                "Mini tryout: 50 soal campuran (30 menit) — ukur perkembangan",
-                f"Latihan {wn[1]}: 50 soal, fokus pola soal yang sering muncul",
-                "Akhir minggu: bandingkan skor dengan baseline Minggu 1",
-             ]},
-            {"period":"Minggu 3","fase":"Simulasi Full","target":"Simulasi kondisi ujian nyata",
-             "jam": jam_lbl,
-             "tasks":[
-                "Tryout full 1 paket (150 soal, 195 menit) — simulasi kondisi ujian",
-                f"Analisis mendalam: fokus subtes {wn[0]} dan {wn[1]}",
-                "Review semua soal salah — cari pola sistematis",
-                "Latihan manajemen waktu: berapa soal per menit untuk tiap subtes",
-                "Evaluasi: hitung proyeksi skor tertimbang",
-             ]},
-            {"period":"Minggu 4","fase":"Final","target":"Pemantapan & persiapan mental",
-             "jam":"1-2 jam/hari (mode ringan)",
-             "tasks":[
-                "Tryout final — ukur pencapaian dari baseline",
-                "Hanya review materi ringkasan, jangan belajar konsep baru",
-                "Simulasi logistik ujian: rute ke lokasi, jam tidur, sarapan",
-                "Teknik relaksasi: pernapasan 4-7-8 tiap pagi",
-                "Jaga kondisi fisik: tidur 8 jam, hindari begadang",
-             ]},
-        ]
+    # Info jenjang
+    if "D3" in jenjang:
+        st.markdown("""<div class="al al-p" style="margin-top:.5rem;padding:.7rem 1rem">
+          <h4>📋 Tentang Jenjang D3 (Diploma Tiga)</h4>
+          Program vokasi 3 tahun yang menekankan keterampilan praktis & profesional.
+          Skor aman D3 umumnya <strong>35–80 poin lebih rendah</strong> dari S1 sejenis,
+          namun persaingan tetap ada karena kuota lebih kecil. Data berbasis SNPMB 2025/2026.
+        </div>""", unsafe_allow_html=True)
     else:
-        weeks_count = {"3-4 bulan":8,"5-6 bulan":8,"6+ bulan":8}.get(dur,8)
-        return [
-            {"period":"Minggu 1-2","fase":"Fondasi","target":"Diagnosis & membangun fondasi",
-             "jam": jam_lbl,
-             "tasks":[
-                "Tryout diagnostic: 150 soal, catat waktu & akurasi per subtes",
-                f"Identifikasi pola soal {wn[0]} (skor {ws[0]:.0f}) — beli/download bank soal UTBK",
-                f"Pelajari konsep dasar {wn[1]} (skor {ws[1]:.0f}) — mulai dari materi SMA",
-                "Buat jadwal belajar harian: alokasi waktu per subtes sesuai bobot",
-                f"Error log: catat semua soal salah beserta kategori materi",
-                "Target akhir: pahami 70% tipe soal semua subtes",
-             ]},
-            {"period":"Minggu 3-4","fase":"Intensif","target":f"Intensif {wn[0]} — target +40 poin",
-             "jam": jam_lbl,
-             "tasks":[
-                f"100 soal {wn[0]} per hari — fokus kecepatan & akurasi",
-                f"Review error log {wn[0]}: catat materi yang masih lemah",
-                "Mini tryout {wn[0]}: 50 soal, 45 menit — ukur progress",
-                f"Maintenance {wn[1]}: 30 soal/hari agar tidak melemah",
-                "Latihan soal UTBK 2022-2024 original — analisis pola soal",
-                "Akhir Minggu 4: tryout lengkap, evaluasi apakah target tercapai",
-             ]},
-            {"period":"Minggu 5-6","fase":"Intensif","target":f"Intensif {wn[1]} — target +40 poin",
-             "jam": jam_lbl,
-             "tasks":[
-                f"100 soal {wn[1]} per hari — variasikan sumber soal",
-                f"Review & perkuat {wn[1]}: fokus subtopik yang paling sering salah",
-                "Latihan soal {wn[1]} dari buku OSK/seleksi — tingkatkan level",
-                f"Maintenance {wn[0]}: 30 soal/hari — pertahankan skor",
-                "Mini tryout campuran: 80 soal, 90 menit",
-                "Akhir Minggu 6: tryout lengkap — hitung proyeksi skor tertimbang",
-             ]},
-            {"period":"Minggu 7","fase":"Pemantapan","target":"Simulasi & review menyeluruh",
-             "jam": jam_lbl,
-             "tasks":[
-                "Tryout full 2x (Senin & Kamis) — simulasi kondisi ujian nyata",
-                "Review semua subtes: fokus soal yang masih sering salah",
-                "Analisis pola kesalahan: apakah karena konsep, kecerobohan, atau waktu",
-                "Latihan manajemen waktu ujian — kembangkan strategi urutan pengerjaan",
-                "Review error log keseluruhan — buat ringkasan materi kritis",
-             ]},
-            {"period":"Minggu 8","fase":"Final","target":"Pemantapan mental & fisik",
-             "jam":"2 jam/hari (mode ringan)",
-             "tasks":[
-                "Tryout final Senin — evaluasi pencapaian keseluruhan",
-                "Review ringan: hanya baca catatan ringkasan, tidak belajar konsep baru",
-                "Simulasi H-3 ujian: tidur jam 10 malam, bangun jam 5 pagi",
-                "Teknik relaksasi: meditasi/pernapasan 4-7-8 tiap pagi & malam",
-                "Jaga fisik: tidur 8 jam, makan bergizi, olahraga ringan 30 menit/hari",
-             ]},
-        ]
+        st.markdown("""<div class="al al-i" style="margin-top:.5rem;padding:.7rem 1rem">
+          <h4>📋 Tentang Jenjang S1 (Sarjana)</h4>
+          Program akademik 4 tahun. Data skor aman berbasis SNPMB/BPPP Kemdikbud & media pendidikan 2025/2026.
+        </div>""", unsafe_allow_html=True)
 
-def gen_rekom(d, sa, weak_2, strong_2, gap):
-    items = []
-    sn = " dan ".join([SUBTES_FULL[s] for s in strong_2])
-    items.append(("strength",f"Kekuatan utama: {sn}",
-        [f"Pertahankan konsistensi pada {sn}",
-         "Jadikan subtes ini anchor skor tertinggi",
-         "Fokus ke soal level advanced untuk memaksimalkan poin",
-         "Tryout minimal 1x/minggu untuk menjaga ketajaman"]))
-    for w in weak_2:
-        target_naik = min(60, max(20, 750-sa[w]["skor"]))//10*10
-        items.append(("weakness",f"Perlu ditingkatkan: {SUBTES_FULL[w]} (skor: {sa[w]['skor']:.0f})",
-            [f"Alokasikan minimum 90 menit/hari khusus untuk {SUBTES_FULL[w]}",
-             "Gunakan bank soal UTBK 2022-2024 original",
-             f"Target kenaikan: +{target_naik} poin dalam 4 minggu",
-             "Review setiap soal salah — jangan hanya lihat kunci jawaban"]))
-    if gap > 0:
-        items.append(("danger",f"Gap ke nilai aman: {gap:.0f} poin",
-            [f"Butuh peningkatan rata-rata ~{gap/7:.0f} poin per subtes",
-             "Perbanyak tryout minimal 2x seminggu",
-             "Analisis mendalam setiap hasil tryout",
-             "Pertimbangkan bimbingan intensif atau kelompok belajar"]))
-    else:
-        items.append(("success",f"Sudah melampaui nilai minimum aman ({-gap:.0f} poin di atas batas bawah)",
-            ["Pertahankan konsistensi belajar",
-             "Targetkan nilai tengah atau nilai maksimum",
-             "Jangan lengah — persaingan UTBK sangat ketat",
-             "Fokus pada manajemen waktu dan kondisi mental"]))
-    anxiety = d.get("anxiety","Sedang")
-    motivasi = d.get("motivasi","Tinggi")
-    if anxiety in ["Tinggi","Sangat Tinggi"]:
-        items.append(("info","Manajemen Kecemasan Ujian",
-            ["Latihan teknik pernapasan 4-7-8: tarik 4 detik, tahan 7, buang 8",
-             "Simulasi kondisi ujian 1x/minggu (timer, meja belajar yang sama)",
-             "Fokus ke proses belajar, bukan hanya hasil akhir",
-             "Bicara dengan mentor/orang tua jika kecemasan berlebihan"]))
-    if motivasi in ["Rendah","Sedang"]:
-        items.append(("info","Tingkatkan Motivasi Belajar",
-            ["Visualisasikan diri berhasil masuk PTN impian setiap pagi",
-             "Buat target harian kecil yang terukur dan rayakan tiap pencapaian",
-             "Bergabung kelompok belajar — motivasi kolektif lebih kuat",
-             "Ingat alasan mengapa kamu memilih PTN & jurusan ini"]))
-    return items
+    st.markdown("---")
+    bobot_chips(jurusan)
+    info = get_ptn_info(kampus, jurusan, jenjang)
+    jenjang_lbl = "D3" if "D3" in jenjang else "S1"
+    st.markdown(f"""<div class="al al-i" style="margin-top:.7rem">
+      <h4>{info['lbl']} — {kampus}</h4>
+      Skor aman <strong>{jenjang_lbl} {jurusan}</strong>:
+      <strong>{info['mn']} – {info['mx']}</strong>
+      <br><small style="color:#6a7a95">Berdasarkan data SNPMB/BPPP Kemdikbud & referensi media pendidikan 2025/2026</small>
+    </div>""", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    if st.button("Lanjut → Skor TPS ▶", type="primary"):
+        if not nama.strip(): st.error("Nama harus diisi!"); return
+        st.session_state.data.update({"nama":nama,"jenjang":jenjang,"jurusan":jurusan,"kampus":kampus})
+        st.session_state.step=2; st.rerun()
+
+def step2():
+    st.markdown("""<div class="al al-p d1" style="margin-bottom:1rem;padding:.8rem 1.2rem">
+      <h4>📊 Langkah 2 dari 4 — Skor TPS</h4>
+      Masukkan skor tryout terbaru untuk 7 subtes TPS. Radar chart akan update secara live!
+    </div>""", unsafe_allow_html=True)
+    st.markdown('<div class="form-box">', unsafe_allow_html=True)
+    st.markdown('<h3>📊 Skor TPS (Tes Potensi Skolastik)</h3>', unsafe_allow_html=True)
+    st.caption(f"Masukkan skor tryout terbaru kamu. Skala: {SKOR_MIN_TPS} – {SKOR_MAX_TPS}")
+    d = st.session_state.data
+    skor = {}
+
+    # Input angka langsung (bukan slider)
+    pairs = [("PU","PPU"),("PBM","PK"),("LBI","LBE"),("PM",None)]
+    for pair in pairs:
+        cols = st.columns(2)
+        for col, k in zip(cols, pair):
+            if k is None: continue
+            with col:
+                val = d.get(k, 550)
+                skor[k] = st.number_input(
+                    f"{SUBTES_FULL[k]} ({k})",
+                    min_value=SKOR_MIN_TPS, max_value=SKOR_MAX_TPS,
+                    value=int(val), step=5,
+                    key=f"n_{k}",
+                    help=f"Masukkan skor {SUBTES_FULL[k]} dari tryout terakhir (200–1000)"
+                )
+
+    jurusan = d.get("jurusan", DAFTAR_JURUSAN[0])
+    bobot   = get_bobot(jurusan)
+
+    # Live radar preview
+    cats  = [SUBTES_FULL[k] for k in SUBTES] + [SUBTES_FULL[SUBTES[0]]]
+    vals  = [skor[k] for k in SUBTES] + [skor[SUBTES[0]]]
+    ideal = [min(SKOR_MAX_TPS, SKOR_MAX_TPS*bobot[k]*6) for k in SUBTES]+[min(SKOR_MAX_TPS,SKOR_MAX_TPS*bobot[SUBTES[0]]*6)]
+    fig   = go.Figure()
+    fig.add_trace(go.Scatterpolar(r=ideal,theta=cats,fill='toself',name='Profil Ideal',
+        fillcolor='rgba(200,137,10,.08)',line=dict(color='#c8890a',dash='dot',width=2)))
+    fig.add_trace(go.Scatterpolar(r=vals, theta=cats,fill='toself',name='Skor Kamu',
+        fillcolor='rgba(59,108,183,.12)',line=dict(color='#3b6cb7',width=2.5)))
+    fig.update_layout(**CTH,polar=dict(
+        bgcolor='rgba(240,244,248,.6)',
+        radialaxis=dict(range=[0,SKOR_MAX_TPS],gridcolor='#dde3ec',linecolor='#dde3ec',tickfont=dict(size=9,color='#6a7a95')),
+        angularaxis=dict(gridcolor='#dde3ec',linecolor='#dde3ec',tickfont=dict(size=9.5,color='#3a4a65'))),
+        legend=dict(bgcolor='rgba(255,255,255,.8)',orientation='h',x=.5,xanchor='center',y=-.15,font=dict(color='#3a4a65')),
+        title=dict(text=f"Preview Radar — {jurusan}",font=dict(size=13,color='#1a2540')),height=380)
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False}, key="survey_radar")
+    st.markdown('</div>', unsafe_allow_html=True)
+    ca,cb = st.columns([1,5])
+    with ca:
+        if st.button("◀ Kembali"): st.session_state.step=1; st.rerun()
+    with cb:
+        if st.button("Lanjut → Psikologis ▶", type="primary"):
+            st.session_state.data.update(skor); st.session_state.step=3; st.rerun()
+
+def step3():
+    st.markdown("""<div class="al al-w d1" style="margin-bottom:1rem;padding:.8rem 1.2rem">
+      <h4>🧠 Langkah 3 dari 4 — Kondisi Psikologis</h4>
+      Nilai kondisi mental dan emosional kamu saat belajar. Faktor ini mempengaruhi risiko underperform.
+    </div>""", unsafe_allow_html=True)
+    st.markdown('<div class="form-box">', unsafe_allow_html=True)
+    st.markdown('<h3>🧠 Kondisi Psikologis</h3>', unsafe_allow_html=True)
+    st.caption("1 = Sangat Rendah · 5 = Sangat Tinggi")
+    d = st.session_state.data
+    ca,cb = st.columns(2)
+    with ca:
+        fokus = st.slider("🎯 Kemampuan Fokus Belajar",1,5,d.get("fokus",3))
+        pede  = st.slider("💪 Percaya Diri",1,5,d.get("pede",3))
+    with cb:
+        cemas  = st.slider("😰 Tingkat Kecemasan (1=tenang, 5=sangat cemas)",1,5,d.get("cemas",3))
+        distrak= st.slider("📱 Mudah Terdistraksi (1=fokus, 5=sangat mudah)",1,5,d.get("distrak",3))
+    psiko = (fokus*1.5+pede*1.5+(6-cemas)+(6-distrak))/20*100
+    pc = "#148a42" if psiko>=65 else "#d4900a" if psiko>=45 else "#c0392b"
+    pct_p = f"{psiko:.0f}%"
+    st.markdown(f"""<div class="score-ring-wrap">
+      <div class="score-ring" style="--pct:{pct_p};background:conic-gradient({pc} {pct_p},#e8eef8 {pct_p})">
+        <div class="score-ring-val" style="color:{pc}">{psiko:.0f}</div>
+        <div class="score-ring-sub">Mental Score</div>
+      </div>
+    </div>""", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    ca,cb = st.columns([1,5])
+    with ca:
+        if st.button("◀ Kembali"): st.session_state.step=2; st.rerun()
+    with cb:
+        if st.button("Lanjut → Kebiasaan Belajar ▶", type="primary"):
+            st.session_state.data.update({"fokus":fokus,"pede":pede,"cemas":cemas,"distrak":distrak})
+            st.session_state.step=4; st.rerun()
+
+def step4():
+    st.markdown("""<div class="al al-s d1" style="margin-bottom:1rem;padding:.8rem 1.2rem">
+      <h4>📚 Langkah 4 dari 4 — Kebiasaan Belajar</h4>
+      Langkah terakhir! Ceritakan pola belajarmu. Data ini digunakan oleh model AI untuk rekomendasi strategi.
+    </div>""", unsafe_allow_html=True)
+    st.markdown('<div class="form-box">', unsafe_allow_html=True)
+    st.markdown('<h3>📚 Kebiasaan Belajar</h3>', unsafe_allow_html=True)
+    d = st.session_state.data
+    mj = {"< 1 jam":1,"1–2 jam":2,"3–4 jam":3,"5–6 jam":4,"> 6 jam":5}
+    mh = {"≤ 1 hari":1,"2 hari":2,"3 hari":3,"4–5 hari":4,"≥ 6 hari":5}
+    ca,cb = st.columns(2)
+    with ca:
+        js = st.selectbox("⏰ Jam belajar/hari",list(mj.keys()),index=d.get("jam",3)-1)
+        hs = st.selectbox("📅 Hari belajar/minggu",list(mh.keys()),index=d.get("hari",3)-1)
+        lat= st.slider("✏️ Intensitas latihan soal/minggu (1–5)",1,5,d.get("latihan",3))
+    with cb:
+        try_= st.slider("📝 Frekuensi tryout/bulan (1–5)",1,5,d.get("tryout",2))
+        rev = st.slider("🔄 Intensitas review soal salah/minggu (1–5)",1,5,d.get("review",3))
+    jb = mj[js]; hb = mh[hs]
+    konsist = min(100,(jb*2+hb*2.2+lat*1.8+try_*1.5+rev*1.5)*2)
+    kc = "#148a42" if konsist>=65 else "#d4900a" if konsist>=45 else "#c0392b"
+    pct_deg = f"{konsist:.0f}%"
+    st.markdown(f"""<div class="score-ring-wrap">
+      <div class="score-ring" style="--pct:{pct_deg};background:conic-gradient({kc} {pct_deg},#e8eef8 {pct_deg})">
+        <div class="score-ring-val" style="color:{kc}">{konsist:.0f}</div>
+        <div class="score-ring-sub">Konsistensi</div>
+      </div>
+    </div>""", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    ca,cb = st.columns([1,5])
+    with ca:
+        if st.button("◀ Kembali"): st.session_state.step=3; st.rerun()
+    with cb:
+        if st.button("🎯  Lihat Hasil Analisis SKORIA", type="primary"):
+            st.session_state.data.update({"jam":jb,"hari":hb,"latihan":lat,"tryout":try_,"review":rev})
+            st.session_state.result = compute(st.session_state.data)
+            st.session_state.page="result"; st.rerun()
+
+def page_survey():
+    step_bar(st.session_state.step)
+    {1:step1,2:step2,3:step3,4:step4}[st.session_state.step]()
 
 
 # ══════════════════════════════════════════════════════════
 # PAGE: RESULT
 # ══════════════════════════════════════════════════════════
 def page_result():
-    render_topbar(3)
     r = st.session_state.result
-    if not r: st.warning("Data tidak ditemukan."); return
+    if not r: st.session_state.page="home"; st.rerun()
 
-    nama=r["nama"]; ptn=r["ptn"]; jurusan=r["jurusan"]
-    skor=r["skor_weighted"]; mn=r["mn"]; mx=r["mx"]; mid=r["mid"]
-    status=r["status"]; icon=r["icon"]; gap=r["gap"]
-    scores=r["scores"]; sa=r["subtes_analysis"]; bobot=r["bobot"]
-    kl,kl_lbl=r["klaster"]
-    psiko=r.get("psiko_score",0); konsist=r.get("konsist_score",0); stab=r.get("stab_score",0)
-    risiko_lbl,risiko_icon,risiko_desc=r.get("risiko",("Sedang","⚠️","—"))
-    ppct=r.get("peluang_pct",50)
+    nama = r.get("nama","Pejuang UTBK")
+    jam  = datetime.datetime.now().hour
+    salam= "Selamat pagi" if jam<11 else "Selamat siang" if jam<15 else "Selamat sore" if jam<18 else "Selamat malam"
+    jenjang_lbl = r.get("jenjang","S1 (Sarjana)")
+    jenjang_badge = "🎓 D3 Vokasi" if "D3" in jenjang_lbl else "🎓 S1 Sarjana"
 
-    # HERO
+    # ── Status badge class ──
+    if r["pl"] == "Sangat Aman":    sb_cls, sb_dot_c = "sbg-sa", "✅"
+    elif r["pl"] == "Aman":         sb_cls, sb_dot_c = "sbg-a",  "✅"
+    elif r["pl"] == "Kompetitif":   sb_cls, sb_dot_c = "sbg-k",  "⚡"
+    else:                            sb_cls, sb_dot_c = "sbg-r",  "🔴"
+
     st.markdown(f"""<div class="hero">
-    <div class="hero-badge">📊 Hasil Analisis SKORIA v4.0</div>
-    <h1>Halo, <span>{nama}</span>! 🎯</h1>
-    <p>Analisis kesiapan UTBK untuk <b>{jurusan}</b> — <b>{ptn}</b> ({kl_lbl})<br>
-    Estimasi Nilai Aman: <b>{mn}–{mx}</b> | Nilai Tengah: <b>{mid:.0f}</b></p>
+      <div class="hero-badge">{jenjang_badge} · {r['jurusan']} · {r['kampus']}</div>
+      <h1 style="font-size:1.65rem!important">{salam}, <span>{nama}!</span> 👋</h1>
+      <p>Hasil analisis <strong style="color:#ffd166">SKORIA AI</strong> berdasarkan
+         skor TPS, psikologis, dan kebiasaan belajarmu · Skor skala 1000</p>
+      <div style="margin-top:1rem">
+        <span class="status-badge {sb_cls}">{sb_dot_c} Status: {r['pl']} · Skor {r['sw']:.0f}</span>
+        &nbsp;
+        <span class="status-badge sbg-a">📊 Peluang ~{r['ppct']:.0f}%</span>
+      </div>
     </div>""", unsafe_allow_html=True)
 
-    # KPI ROW — 5 kartu (termasuk risiko & peluang seperti uploaded app.py)
-    gap_color="c-green" if gap<=0 else "c-red"
-    gap_disp=f"+{-gap:.0f}" if gap<0 else f"-{gap:.0f}"
-    pc_color="c-green" if ppct>=65 else "c-orange" if ppct>=45 else "c-red"
-    risiko_color="c-green" if risiko_lbl=="Rendah" else "c-orange" if risiko_lbl=="Sedang" else "c-red"
-    pct=round((skor-mn)/(mx-mn)*100) if mx!=mn else 0
+    # ── KPI Row with staggered animation ──
+    gc = "c-green" if r["gap"]>=0 else "c-red"
+    pc = "c-green" if r["ppct"]>=65 else "c-orange" if r["ppct"]>=35 else "c-red"
+    kc = "c-green" if r["pl"] in ("Sangat Aman","Aman") else "c-orange" if r["pl"]=="Kompetitif" else "c-red"
 
-    c1,c2,c3,c4,c5=st.columns(5)
-    with c1: st.markdown(f'<div class="card"><div class="kpi-lbl">Skor Tertimbang</div><div class="kpi-val c-blue">{skor:.0f}</div><div class="kpi-sub">dari maks 1000</div></div>',unsafe_allow_html=True)
-    with c2: st.markdown(f'<div class="card"><div class="kpi-lbl">Peluang Lolos</div><div class="kpi-val {pc_color}">{ppct:.0f}%</div><div class="kpi-sub">{status}</div></div>',unsafe_allow_html=True)
-    with c3: st.markdown(f'<div class="card"><div class="kpi-lbl">Gap Nilai Aman</div><div class="kpi-val {gap_color}">{gap_disp}</div><div class="kpi-sub">{"✓ Di atas minimum" if gap<=0 else "Perlu ditingkatkan"}</div></div>',unsafe_allow_html=True)
-    with c4: st.markdown(f'<div class="card"><div class="kpi-lbl">Posisi dalam Range</div><div class="kpi-val c-purple">{min(100,max(0,pct))}%</div><div class="kpi-sub">rentang {mn}–{mx}</div></div>',unsafe_allow_html=True)
-    with c5: st.markdown(f'<div class="card"><div class="kpi-lbl">Risiko Underperform</div><div class="kpi-val {risiko_color}" style="font-size:1.2rem">{risiko_icon} {risiko_lbl}</div><div class="kpi-sub">{risiko_desc[:35]}...</div></div>',unsafe_allow_html=True)
-
-    st.markdown('<div class="anim-div"></div>', unsafe_allow_html=True)
-
-    # TABS
-    tab1,tab2,tab3,tab4,tab5 = st.tabs([
-        "📊 Skor & Subtes",
-        "🎯 Analisis Target",
-        "💡 Rekomendasi & Psikologis",
-        "📅 Study Plan Detail",
-        "📄 Download PDF"
-    ])
-
-    # ─── TAB 1: SKOR & SUBTES
-    with tab1:
-        c1,c2 = st.columns(2)
-        with c1:
-            st.markdown('<div class="sec">📊 Profil Skor Per Subtes</div>', unsafe_allow_html=True)
-            for s in SUBTES:
-                lv=sa[s]["level"]
-                ic="🟢" if lv=="Unggul" else "🔵" if lv=="Baik" else "🟡" if lv=="Cukup" else "🔴"
-                st.markdown(bar_html(f"{ic} {s} — {SUBTES_FULL[s]}",sa[s]["skor"],1000,SUBTES_CLR[s]),unsafe_allow_html=True)
-        with c2:
-            vals=[scores.get(s,500) for s in SUBTES]
-            fig=go.Figure()
-            fig.add_trace(go.Scatterpolar(r=vals+[vals[0]],theta=SUBTES+[SUBTES[0]],fill="toself",name="Skor Kamu",
-                line=dict(color="#3464c8",width=2.5),fillcolor="rgba(52,100,200,.15)"))
-            fig.add_trace(go.Scatterpolar(r=[mn]*len(SUBTES)+[mn],theta=SUBTES+[SUBTES[0]],mode="lines",
-                name=f"Min Aman ({mn})",line=dict(color="#d4900a",width=1.5,dash="dot")))
-            fig.update_layout(polar=dict(radialaxis=dict(range=[200,1000])),showlegend=True,
-                margin=dict(t=30,b=30,l=30,r=30),height=350,
-                paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(family="Plus Jakarta Sans"))
-            st.plotly_chart(fig,use_container_width=True,key="chart_radar")
-
-        st.markdown(f'<div class="sec">⚖️ Bobot Subtes — {jurusan}</div>', unsafe_allow_html=True)
-        df=pd.DataFrame([{"Subtes":s,"Nama":SUBTES_FULL[s],"Bobot":f"{bobot[s]*100:.0f}%",
-            "Skor":scores.get(s,500),"Kontribusi":f"{sa[s]['kontribusi']:.1f}","Level":sa[s]["level"]}
-            for s in SUBTES])
-        st.dataframe(df,use_container_width=True,hide_index=True)
-
-    # ─── TAB 2: ANALISIS TARGET
-    with tab2:
-        c1,c2=st.columns(2)
-        with c1:
-            st.markdown('<div class="sec">🎯 Posisi Skor vs Target</div>', unsafe_allow_html=True)
-            fig2=go.Figure()
-            fig2.add_trace(go.Bar(name="Skor Kamu",x=["Skor"],y=[skor],marker_color="#3464c8",text=[f"{skor:.0f}"],textposition="outside"))
-            fig2.add_trace(go.Bar(name="Min Aman",x=["Min Aman"],y=[mn],marker_color="#d4900a",text=[str(mn)],textposition="outside"))
-            fig2.add_trace(go.Bar(name="Max Aman",x=["Max Aman"],y=[mx],marker_color="#148a42",text=[str(mx)],textposition="outside"))
-            fig2.update_layout(height=300,margin=dict(t=20,b=20,l=20,r=20),
-                paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(family="Plus Jakarta Sans"),yaxis=dict(range=[0,1050]))
-            st.plotly_chart(fig2,use_container_width=True,key="chart_bar")
-        with c2:
-            st.markdown('<div class="sec">🔄 Alternatif Jurusan di PTN Sama</div>', unsafe_allow_html=True)
-            for a in r["alternatif_same_ptn"]:
-                mn_a,mx_a=get_target_range(ptn,a)
-                st_a,_,ic_a=get_status(skor,mn_a,mx_a)
-                st.markdown(f'<div class="card" style="margin-bottom:.6rem"><b>{ic_a} {a}</b><br><small style="color:#6a7a9a">Nilai Aman {ptn[:20]}...: {mn_a}–{mx_a} | {st_a}</small></div>',unsafe_allow_html=True)
-
-        # Alternatif PTN lain — REALISTIS
-        st.markdown('<div class="sec">🏫 Alternatif PTN Lain yang Realistis (Jurusan Sama)</div>', unsafe_allow_html=True)
-        alt_diff = r.get("alternatif_diff_ptn",[])
-        if alt_diff:
-            st.markdown("""<div class="al al-i"><h4>ℹ️ Rekomendasi PTN Alternatif</h4>
-            Daftar PTN lain dengan jurusan yang sama di mana skormu sudah <b>Aman</b> atau <b>Batas Aman</b>.
-            Diurutkan dari yang paling realistis dicapai.</div>""", unsafe_allow_html=True)
-            alt_rows=[]
-            for item in alt_diff:
-                alt_rows.append({"PTN":item["ptn"],"Klaster":item["kl_lbl"],
-                    "Min":item["mn"],"Max":item["mx"],
-                    "Status":f"{item['icon']} {item['status']}"})
-            st.dataframe(pd.DataFrame(alt_rows),use_container_width=True,hide_index=True)
-        else:
-            st.markdown("""<div class="al al-w"><h4>⚠️ Belum Ada PTN Alternatif Realistis</h4>
-            Skor saat ini belum mencapai zona aman di PTN lain untuk jurusan yang sama.
-            Tingkatkan skor atau pertimbangkan jurusan alternatif.</div>""", unsafe_allow_html=True)
-
-        st.markdown('<div class="sec">🏛️ Semua PTN — Jurusan Sama</div>', unsafe_allow_html=True)
-        rows=[]
-        for p in DAFTAR_PTN:
-            mn_p,mx_p=get_target_range(p,jurusan)
-            st_p,_,ic_p=get_status(skor,mn_p,mx_p)
-            kl_p,kl_lbl_p=get_klaster_ptn(p)
-            rows.append({"PTN":p,"Klaster":kl_lbl_p,"Min":mn_p,"Max":mx_p,"Status":f"{ic_p} {st_p}"})
-        st.dataframe(pd.DataFrame(rows),use_container_width=True,hide_index=True)
-
-    # ─── TAB 3: REKOMENDASI & PSIKOLOGIS
-    with tab3:
-        # Indikator psikologis
-        st.markdown('<div class="sec">🧠 Indikator Psikologis & Konsistensi</div>', unsafe_allow_html=True)
-        c1,c2,c3=st.columns(3)
-        with c1:
-            pc_c="#148a42" if psiko>=65 else "#d4900a" if psiko>=45 else "#c0392b"
-            st.markdown(prog_bar_html("🧠 Kesiapan Mental",psiko,pc_c),unsafe_allow_html=True)
-            st.markdown(f'<div class="al {"al-s" if psiko>=65 else "al-w" if psiko>=45 else "al-d"}" style="padding:.7rem 1rem"><h4>{"✅ Baik" if psiko>=65 else "⚠️ Perlu Perhatian" if psiko>=45 else "🔴 Perlu Ditingkatkan"}</h4>{psiko:.0f}/100 — Kombinasi fokus, motivasi, dan kecemasan.</div>',unsafe_allow_html=True)
-        with c2:
-            kc_c="#148a42" if konsist>=65 else "#d4900a" if konsist>=45 else "#c0392b"
-            st.markdown(prog_bar_html("📚 Konsistensi Belajar",konsist,kc_c),unsafe_allow_html=True)
-            st.markdown(f'<div class="al {"al-s" if konsist>=65 else "al-w" if konsist>=45 else "al-d"}" style="padding:.7rem 1rem"><h4>{"✅ Konsisten" if konsist>=65 else "⚠️ Cukup Konsisten" if konsist>=45 else "🔴 Perlu Rutin"}</h4>{konsist:.0f}/100 — Frekuensi dan durasi belajar.</div>',unsafe_allow_html=True)
-        with c3:
-            sc_c="#148a42" if stab>=65 else "#d4900a" if stab>=45 else "#c0392b"
-            st.markdown(prog_bar_html("⚖️ Stabilitas Mental",stab,sc_c),unsafe_allow_html=True)
-            st.markdown(f'<div class="al {"al-s" if stab>=65 else "al-w" if stab>=45 else "al-d"}" style="padding:.7rem 1rem"><h4>{"✅ Stabil" if stab>=65 else "⚠️ Agak Fluktuatif" if stab>=45 else "🔴 Berisiko"}</h4>{stab:.0f}/100 — Kemampuan menjaga performa.</div>',unsafe_allow_html=True)
-
-        # Risiko underperform
-        risiko_cls = "al-s" if risiko_lbl=="Rendah" else "al-w" if risiko_lbl=="Sedang" else "al-d"
-        st.markdown(f'<div class="al {risiko_cls}"><h4>{risiko_icon} Risiko Underperform: {risiko_lbl}</h4>{risiko_desc}</div>',unsafe_allow_html=True)
-
-        # Visualisasi bar chart psikologis
-        fig_psy = go.Figure()
-        fig_psy.add_trace(go.Bar(x=["Kesiapan Mental","Konsistensi Belajar","Stabilitas Mental"],
-            y=[psiko,konsist,stab],
-            marker_color=["#3464c8","#148a42","#6b3fca"],
-            text=[f"{v:.0f}%" for v in [psiko,konsist,stab]],
-            textposition="outside",textfont=dict(size=11,color="#12203f")))
-        fig_psy.add_hline(y=65,line_dash="dot",line_color="#d4900a",line_width=1.5,
-            annotation_text="  Target 65%",annotation_font_color="#d4900a",annotation_font_size=10)
-        fig_psy.update_layout(height=280,margin=dict(t=20,b=20,l=20,r=20),
-            paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(family="Plus Jakarta Sans"),yaxis=dict(range=[0,115],ticksuffix="%",gridcolor="#eef1f5"),
-            xaxis=dict(gridcolor="#dde3ec"))
-        st.plotly_chart(fig_psy,use_container_width=True,key="chart_psiko")
-
-        # Rekomendasi personal
-        st.markdown('<div class="sec">💡 Rekomendasi Personal</div>', unsafe_allow_html=True)
-        cls_map={"strength":"al-s","weakness":"al-w","danger":"al-d","info":"al-i","success":"al-s"}
-        icon_map={"strength":"✅","weakness":"⚠️","danger":"🔴","info":"ℹ️","success":"🎉"}
-        for kind,title,pts in r["rekom"]:
-            pts_html="".join(f"<li>{p}</li>" for p in pts)
-            al_cls=cls_map.get(kind,"al-i"); al_icon=icon_map.get(kind,"💡")
-            st.markdown(f'<div class="al {al_cls}"><h4>{al_icon} {title}</h4><ul>{pts_html}</ul></div>',unsafe_allow_html=True)
-
-    # ─── TAB 4: STUDY PLAN DETAIL
-    with tab4:
-        st.markdown('<div class="sec">📅 Study Plan Detail Per Minggu</div>', unsafe_allow_html=True)
-
-        plan = r["plan"]
-        durasi = r.get("profil",{}).get("durasi_utbk","3-4 bulan")
-
-        # Info banner
-        skor_w = r["skor_weighted"]; mn_v = r["mn"]; mx_v = r["mx"]
-        target_total = mx_v - skor_w
-        st.markdown(f"""<div class="al al-i">
-        <h4>📋 Ringkasan Study Plan</h4>
-        Skor saat ini: <b>{skor_w:.0f}</b> → Target nilai aman: <b>{mn_v}–{mx_v}</b><br>
-        Gap ke nilai minimum: <b>{mn_v-skor_w:+.0f} poin</b> &nbsp;|&nbsp;
-        Waktu tersisa: <b>{durasi}</b> &nbsp;|&nbsp;
-        Subtes utama untuk diperkuat: <b>{SUBTES_FULL[r['weak_2'][0]]}</b> dan <b>{SUBTES_FULL[r['weak_2'][1]]}</b>
-        </div>""", unsafe_allow_html=True)
-
-        # Proyeksi skor chart
-        target_per_week = max(5, (mn_v - skor_w) / max(len(plan),1) + 8)
-        weeks_x = [0] + list(range(1, len(plan)+1))
-        scores_proj = [skor_w] + [min(mx_v+20, skor_w + target_per_week*i) for i in range(1,len(plan)+1)]
-        fase_labels = ["Start"] + [p["fase"] for p in plan]
-
-        fig_proj = go.Figure()
-        fig_proj.add_hrect(y0=mn_v, y1=mx_v, fillcolor="rgba(20,138,66,.08)", layer="below", line_width=0,
-            annotation_text="  Zona Aman", annotation_position="top right",
-            annotation_font=dict(color="#148a42",size=10))
-        fig_proj.add_trace(go.Scatter(x=weeks_x, y=scores_proj, mode="lines+markers+text",
-            line=dict(color="#3464c8",width=2.5),
-            marker=dict(size=8,color="#3464c8",line=dict(color="#fff",width=1.5)),
-            text=[f"{v:.0f}" for v in scores_proj], textposition="top center",
-            textfont=dict(size=8.5,color="#334466"),name="Proyeksi Skor"))
-        fig_proj.add_hline(y=mn_v,line_dash="dash",line_color="#d4620a",line_width=1.5,
-            annotation_text=f"  Min Aman ({mn_v})",annotation_font_color="#d4620a",annotation_font_size=10)
-        fig_proj.update_layout(height=280,margin=dict(t=20,b=30,l=20,r=20),
-            paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(family="Plus Jakarta Sans"),
-            xaxis=dict(title="Minggu ke-",gridcolor="#eef1f5",tickvals=weeks_x,ticktext=fase_labels,
-                       tickfont=dict(size=8)),
-            yaxis=dict(range=[max(400,skor_w-60),min(1000,mx_v+60)],gridcolor="#eef1f5",title="Proyeksi Skor"),
-            showlegend=False)
-        st.plotly_chart(fig_proj,use_container_width=True,key="chart_proj")
-
-        # Detail per minggu
-        fase_colors = {"Fondasi":"#3464c8","Intensif":"#d4620a","Pemantapan":"#148a42","Final":"#c8890a"}
-        for i,item in enumerate(plan):
-            clr = fase_colors.get(item["fase"],"#6b3fca")
-            tasks_html = "".join(f'<div style="padding:.18rem 0;color:#334466;font-size:.82rem">• {t}</div>' for t in item["tasks"])
-            st.markdown(f"""<div class="week-card" style="border-left:4px solid {clr}">
-            <div class="week-num" style="color:{clr}">⏱ {item['period']} — {item['fase'].upper()}</div>
-            <div class="week-target">🎯 Target: <b style="color:{clr}">{item['target']}</b> &nbsp;|&nbsp; ⏰ {item['jam']}</div>
-            <div class="week-tasks">{tasks_html}</div>
+    k1,k2,k3,k4,k5 = st.columns(5)
+    for i,(col,lbl,val,cls,sub) in enumerate([
+        (k1,"Skor Tertimbang",f"{r['sw']:.0f}",kc,"dari 1000"),
+        (k2,"Rata-rata Subtes",f"{r['rata']:.0f}","c-blue","7 subtes"),
+        (k3,"Peluang Lolos",f"{r['ppct']:.0f}%",pc,r["pl"]),
+        (k4,"Gap vs Minimum",f"{r['gap']:+.0f}",gc,f"Min {r['info']['mn']}"),
+        (k5,"Risiko Underperform",r["risk"][0],
+             "c-green" if r["risk"][0]=="Rendah" else "c-orange" if r["risk"][0]=="Sedang" else "c-red",
+             r["risk"][1]),
+    ]):
+        with col:
+            st.markdown(f"""<div class="card d{i+1}">
+              <div class="kpi-lbl">{lbl}</div>
+              <div class="kpi-val {cls}">{val}</div>
+              <div class="kpi-sub">{sub}</div>
             </div>""", unsafe_allow_html=True)
 
-    # ─── TAB 5: DOWNLOAD PDF
-    with tab5:
-        st.markdown('<div class="sec">📄 Download Laporan Lengkap (PDF)</div>', unsafe_allow_html=True)
-        st.markdown("""<div class="al al-i">
-        <h4>📋 Isi Laporan PDF</h4>
-        Laporan PDF mencakup seluruh hasil analisis:
-        <ul>
-        <li>📊 Profil skor & bobot 7 subtes TPS</li>
-        <li>🎯 KPI: peluang lolos, gap, risiko underperform</li>
-        <li>🧠 Indikator psikologis & kebiasaan belajar</li>
-        <li>🏫 Rekomendasi jurusan alternatif (PTN sama & PTN lain)</li>
-        <li>💡 Rekomendasi personal & strategi belajar</li>
-        <li>📅 Study plan detail per minggu dengan tugas spesifik</li>
-        </ul>
+    # ── Animated divider ──
+    st.markdown('<div class="anim-div"></div>', unsafe_allow_html=True)
+
+    # ── LGBM Banner ──
+    if r.get("lgbm_r") and r["lgbm_r"].get("ok"):
+        h=r["lgbm_r"]; det=h.get("detail",{})
+        kpct = f"{h['kpct']:.1f}%" if h.get("kpct") else ""
+        tips = "".join(f"<li>{t}</li>" for t in det.get("tips",[]))
+        st.markdown(f"""<div class="al al-s">
+          <h4>🤖 Rekomendasi Strategi SKORIA AI — {det.get('icon','')} {h['strategi']}
+            <span style="font-size:.78rem;font-weight:500;color:#6a7a95"> · Kepercayaan: {kpct}</span></h4>
+          <em>{det.get('desc','')}</em>
+          <ul style="margin-top:.35rem">{tips}</ul>
         </div>""", unsafe_allow_html=True)
 
-        col1,col2,col3 = st.columns([1,2,1])
-        with col2:
-            if st.button("📄 Generate & Download PDF", type="primary", use_container_width=True, key="btn_pdf"):
-                with st.spinner("Generating PDF..."):
-                    try:
-                        pdf_bytes = generate_pdf_bytes(r)
-                        import base64
-                        b64 = base64.b64encode(pdf_bytes).decode()
-                        fn = f"SKORIA_{nama.replace(' ','_')}_{jurusan.replace(' ','_')}.pdf"
-                        st.markdown(f"""
-                        <div style="text-align:center;margin-top:1rem">
-                        <a href="data:application/pdf;base64,{b64}" download="{fn}"
-                        style="display:inline-block;background:linear-gradient(135deg,#3464c8,#1a3470);
-                               color:#fff;font-weight:700;padding:.8rem 2rem;border-radius:10px;
-                               text-decoration:none;font-size:.95rem;font-family:'Space Grotesk',sans-serif;
-                               box-shadow:0 4px 16px rgba(52,100,200,.4)">
-                        ⬇️ Download {fn}
-                        </a></div>""", unsafe_allow_html=True)
-                        st.success(f"✅ PDF berhasil digenerate! Klik link di atas untuk download.")
-                    except Exception as e:
-                        st.error(f"Gagal generate PDF: {e}")
+    # ── Status Banner ──
+    if r["pl"]=="Sangat Aman":
+        st.markdown(f"""<div class="al al-s"><h4>🎯 Status: SANGAT AMAN</h4>
+          Skor tertimbang <strong>{r['sw']:.0f}</strong> melampaui batas aman maksimum {r['info']['mx']} untuk {r['jurusan']} di {r['kampus']}.
+          Pertahankan performa & jaga kondisi mental.</div>""", unsafe_allow_html=True)
+    elif r["pl"]=="Aman":
+        st.markdown(f"""<div class="al al-s"><h4>✅ Status: AMAN</h4>
+          Skor {r['sw']:.0f} dalam zona aman ({r['info']['mn']}–{r['info']['mx']}).
+          Tambah <strong>{r['info']['mx']-r['sw']:.0f} poin</strong> lagi untuk zona sangat aman.</div>""", unsafe_allow_html=True)
+    elif r["pl"]=="Kompetitif":
+        st.markdown(f"""<div class="al al-w"><h4>⚡ Status: KOMPETITIF</h4>
+          Butuh <strong>+{r['info']['mn']-r['sw']:.0f} poin</strong> untuk zona aman di {r['jurusan']} - {r['kampus']}. Intensifkan latihan.</div>""", unsafe_allow_html=True)
+    else:
+        st.markdown(f"""<div class="al al-d"><h4>🔴 Status: PERLU PENINGKATAN</h4>
+          Gap <strong>{abs(r['gap']):.0f} poin</strong> dari minimum untuk {r['jurusan']} di {r['kampus']}. Pertimbangkan bimbingan intensif atau jurusan alternatif.</div>""", unsafe_allow_html=True)
 
-        # Preview ringkasan
-        st.markdown('<div class="sec">Preview Ringkasan</div>', unsafe_allow_html=True)
-        c1,c2 = st.columns(2)
-        with c1:
-            st.dataframe(pd.DataFrame([
-                {"Info":"Nama","Detail":nama},
-                {"Info":"Jurusan","Detail":jurusan},
-                {"Info":"PTN Target","Detail":ptn},
-                {"Info":"Klaster","Detail":kl_lbl},
-                {"Info":"Skor Tertimbang","Detail":f"{skor:.0f} / 1000"},
-                {"Info":"Gap vs Minimum","Detail":f"{gap:+.0f}"},
-            ]),use_container_width=True,hide_index=True)
-        with c2:
-            st.dataframe(pd.DataFrame([
-                {"Indikator":"Peluang Lolos","Nilai":f"{ppct:.0f}% ({status})"},
-                {"Indikator":"Kesiapan Mental","Nilai":f"{psiko:.0f}/100"},
-                {"Indikator":"Konsistensi Belajar","Nilai":f"{konsist:.0f}/100"},
-                {"Indikator":"Stabilitas Mental","Nilai":f"{stab:.0f}/100"},
-                {"Indikator":"Risiko Underperform","Nilai":f"{risiko_icon} {risiko_lbl}"},
-                {"Indikator":"Jumlah Alternatif PTN","Nilai":str(len(r.get("alternatif_diff_ptn",[])))},
-            ]),use_container_width=True,hide_index=True)
+    # ── TABS ──
+    t1,t2,t3,t4,t5,t6,t7 = st.tabs([
+        "📡 Radar & Skor TPS",
+        "📊 Analisis Kampus",
+        "🔀 Pipeline & Bobot",
+        "🎓 Jurusan",
+        "🚀 Strategi",
+        "📅 Rencana Mingguan",
+        "📄 Export PDF",
+    ])
 
-    st.markdown('<div class="anim-div"></div>', unsafe_allow_html=True)
-    c1,c2,c3=st.columns(3)
-    with c1:
-        if st.button("← Ubah Input",key="btn_r_back"): st.session_state.page="survey"; st.session_state.step=1; st.rerun()
-    with c2:
-        if st.button("🏠 Beranda",key="btn_r_home"): st.session_state.page="home"; st.rerun()
-    with c3:
-        if st.button("🔄 Analisis Baru",type="primary",use_container_width=True,key="btn_r_new"):
-            st.session_state.data={}; st.session_state.result=None
-            st.session_state.page="survey"; st.session_state.step=1; st.rerun()
+    # ─── TAB 1: RADAR + BAR ───
+    with t1:
+        st.markdown('<div class="sec">📡 Radar TPS vs Profil Ideal Jurusan</div>', unsafe_allow_html=True)
+        ch_radar(r["skor"],r["bobot"],r["jurusan"], key="r_radar_t1")
+        st.markdown('<div class="sec">📊 Skor Per Subtes vs Target Kampus</div>', unsafe_allow_html=True)
+        ch_bar_subtes(r["skor"],r["bobot"],r["info"], key="r_bar_t1")
+        st.markdown('<div class="sec">Detail Skor Subtes</div>', unsafe_allow_html=True)
+        df_data = []
+        for k in SUBTES:
+            sv = r["skor"][k]
+            status = "✅ Kuat" if sv>=750 else "⚡ Sedang" if sv>=550 else "🔴 Perlu Fokus"
+            df_data.append({
+                "Subtes": SUBTES_FULL[k],
+                "Bobot (%)": f"{r['bobot'][k]*100:.0f}%",
+                "Skor": sv,
+                "Kontribusi": f"{sv*r['bobot'][k]:.1f}",
+                "Status": status,
+            })
+        st.dataframe(
+            pd.DataFrame(df_data),
+            use_container_width=True, hide_index=True,
+            column_config={
+                "Skor": st.column_config.ProgressColumn("Skor", min_value=200, max_value=1000, format="%d"),
+            }
+        )
+
+    # ─── TAB 2: ANALISIS KAMPUS ───
+    with t2:
+        st.markdown('<div class="sec">📊 Posisi Skor vs Klaster PTN</div>', unsafe_allow_html=True)
+        ch_klaster(r["sw"], key="r_kl_t2")
+        st.markdown(f'<div class="sec">🏛️ PTN Klaster {r["info"]["k"]} — Skor per {r["jurusan"]} ({r.get("jenjang","S1")})</div>', unsafe_allow_html=True)
+        ch_ptn(r["sw"], r["info"]["k"], r["jurusan"], r.get("jenjang","S1 (Sarjana)"), key="r_ptn_t2")
+        st.markdown('<div class="sec">Ringkasan Peluang per Klaster</div>', unsafe_allow_html=True)
+        jenjang_r = r.get("jenjang","S1 (Sarjana)")
+        kl_rows = []
+        for kno,(mn_k,mx_k,knm) in [(1,(850,950,"⭐ Klaster 1 — Top Tier")),
+                                      (2,(700,870,"🔷 Klaster 2 — Menengah Atas")),
+                                      (3,(600,720,"🔹 Klaster 3 — Menengah")),
+                                      (4,(555,660,"🔸 Klaster 4 — Regional"))]:
+            if "D3" in jenjang_r:
+                ptn_klaster = [k for k,v in PTN_D3_DATA.items() if v.get("_klaster")==kno]
+                data_src = PTN_D3_DATA
+            else:
+                ptn_klaster = [k for k,v in PTN_JURUSAN_DATA.items() if v.get("_klaster")==kno]
+                data_src = PTN_JURUSAN_DATA
+            if ptn_klaster:
+                info_k = get_ptn_info(ptn_klaster[0], r["jurusan"], jenjang_r)
+                mn_k, mx_k = info_k["mn"], info_k["mx"]
+            g = r["sw"] - mn_k
+            if r["sw"]>=mx_k: st_k,p_k="🎯 Sangat Aman","~87%"
+            elif r["sw"]>=mn_k: st_k,p_k="✅ Aman","~72%"
+            elif r["sw"]>=mn_k-70: st_k,p_k="⚡ Kompetitif","~42%"
+            else: st_k,p_k="🔴 Berisiko","~16%"
+            kl_rows.append({
+                "Klaster": knm,
+                "Rentang Skor": f"{mn_k}–{mx_k}",
+                "Skor Kamu": f"{r['sw']:.0f}",
+                "Gap": f"{g:+.0f}",
+                "Status": st_k,
+                "Est. Peluang": p_k
+            })
+        st.dataframe(pd.DataFrame(kl_rows), use_container_width=True, hide_index=True)
+        d1,d2,d3 = st.columns(3)
+        with d1: st.metric("Skor Minimum Aman",r["info"]["mn"])
+        with d2: st.metric("Skor Sangat Aman",r["info"]["mx"])
+        with d3: st.metric("Skor Tertimbang Kamu",f"{r['sw']:.0f}",
+                            delta=f"{r['gap']:+.0f} vs minimum",
+                            delta_color="normal" if r["gap"]>=0 else "inverse")
+
+    # ─── TAB 3: PIPELINE & BOBOT ───
+    with t3:
+        st.markdown('<div class="sec">🔀 Pipeline Kontribusi Subtes → Skor Total</div>', unsafe_allow_html=True)
+        st.caption("Batang berwarna = kontribusi aktual. Batang transparan = target minimum kampus.")
+        ch_pipeline(r["skor"],r["bobot"],r["info"],r["jurusan"], key="r_pipe_t3")
+        st.markdown(f'<div class="sec">📐 Distribusi Bobot Subtes — {r["jurusan"]}</div>', unsafe_allow_html=True)
+        ch_bobot(r["jurusan"], key="r_bobot_t3")
+        st.markdown('<div class="sec">Tabel Bobot & Kontribusi Detail</div>', unsafe_allow_html=True)
+        df_b_data = []
+        for k in SUBTES:
+            df_b_data.append({
+                "Subtes": SUBTES_FULL[k],
+                "Bobot": f"{r['bobot'][k]*100:.0f}%",
+                "Skor": r["skor"][k],
+                "Kontribusi Aktual": f"{r['skor'][k]*r['bobot'][k]:.1f}",
+                "Target Minimum": f"{r['info']['mn']*r['bobot'][k]:.1f}",
+                "Selisih": f"{(r['skor'][k]-r['info']['mn'])*r['bobot'][k]:+.1f}",
+            })
+        df_b_data.append({
+            "Subtes": "TOTAL",
+            "Bobot": "100%",
+            "Skor": "—",
+            "Kontribusi Aktual": f"{r['sw']:.1f}",
+            "Target Minimum": f"{r['info']['mn']:.0f}",
+            "Selisih": f"{r['gap']:+.1f}",
+        })
+        st.dataframe(pd.DataFrame(df_b_data), use_container_width=True, hide_index=True)
+        with st.expander("📊 Lihat bobot semua jurusan"):
+            rows_all = []
+            for j,b in BOBOT_MAP.items():
+                row={"Jurusan":j}; row.update({f"{k}(%)":f"{b[k]*100:.0f}" for k in SUBTES})
+                rows_all.append(row)
+            st.dataframe(pd.DataFrame(rows_all), use_container_width=True, hide_index=True)
+
+    # ─── TAB 4: JURUSAN ───
+    with t4:
+        st.markdown(f'<div class="sec">🎓 Analisis Jurusan — {r["jurusan"]}</div>', unsafe_allow_html=True)
+        if r["aman"]:
+            st.markdown(f"""<div class="al al-s">
+              <h4>🎯 FOKUS KE JURUSAN TARGET: {r['jurusan']}</h4>
+              Peluang lolos <strong>{r['pl']}</strong> ({r['ppct']:.0f}%) — tidak perlu berpindah jurusan.
+              Pertahankan dan tingkatkan skor menjelang UTBK.
+            </div>""", unsafe_allow_html=True)
+            bobot_chips(r["jurusan"])
+            col_a, col_b = st.columns(2)
+            with col_a:
+                ch_bobot(r["jurusan"], key="r_bobot_t4_main")
+            with col_b:
+                st.markdown("<p style='color:#3a4a65;font-weight:600;margin-bottom:.8rem'>📈 Indikator Kesiapan:</p>", unsafe_allow_html=True)
+                prog_bar("Kesiapan Mental",r["psiko"],"#3b6cb7")
+                prog_bar("Konsistensi Belajar",r["konsist"],"#1a8a4a")
+                prog_bar("Stabilitas Mental",r["stab"],"#7048c8")
+            bs = sorted(r["bobot"].items(),key=lambda x:x[1],reverse=True)
+            st.markdown('<div class="sec">🔑 Subtes Kunci (Bobot Tertinggi)</div>', unsafe_allow_html=True)
+            sc = st.columns(3)
+            for col,(k,bv) in zip(sc,bs[:3]):
+                sv = r["skor"][k]
+                kc2 = "c-green" if sv>=750 else "c-gold" if sv>=550 else "c-red"
+                with col:
+                    st.markdown(f"""<div class="card" style="text-align:center">
+                      <div class="kpi-lbl">{SUBTES_FULL[k]}</div>
+                      <div class="kpi-val {kc2}">{sv}</div>
+                      <div class="kpi-sub">Bobot {int(bv*100)}% {'✅' if sv>=750 else '⚡' if sv>=550 else '🔴'}</div>
+                    </div>""", unsafe_allow_html=True)
+            st.markdown('<div class="sec">📋 Jurusan Alternatif (Cadangan)</div>', unsafe_allow_html=True)
+            st.markdown('<div class="al al-i"><h4>ℹ️ Info</h4>Skor kamu sudah aman. Alternatif ini hanya cadangan formalitas.</div>', unsafe_allow_html=True)
+            alt = r["alternatif"]
+            if alt:
+                ac = st.columns(len(alt))
+                for col,j in zip(ac,alt):
+                    with col:
+                        bj=get_bobot(j); swj=hitung_tw(r["skor"],bj)
+                        plj,_,pctj=hitung_peluang(swj,r["kampus"],j,r.get("jenjang","S1 (Sarjana)"))
+                        st.markdown(f"""<div class="card" style="text-align:center;opacity:.75">
+                          <div style="font-size:.7rem;color:#6a7a95">Alternatif</div>
+                          <div style="font-weight:700;font-size:.87rem;margin:.2rem 0;color:#1a2540">{j}</div>
+                          <div style="font-size:.75rem;color:#3a4a65">{plj} ({pctj:.0f}%)</div>
+                        </div>""", unsafe_allow_html=True)
+        else:
+            st.markdown(f"""<div class="al al-w">
+              <h4>⚡ Skor Belum Zona Aman — {r['jurusan']}</h4>
+              Butuh <strong>+{r['info']['mn']-r['sw']:.0f} poin</strong>. Pertimbangkan jurusan alternatif.
+            </div>""", unsafe_allow_html=True)
+            bobot_chips(r["jurusan"])
+            ch_bobot(r["jurusan"], key="r_bobot_t4_alt")
+            st.markdown('<div class="sec">🔄 Jurusan Alternatif yang Direkomendasikan</div>', unsafe_allow_html=True)
+            for idx,j in enumerate(r["alternatif"]):
+                bj = get_bobot(j); swj = hitung_tw(r["skor"],bj)
+                plj,_,pctj = hitung_peluang(swj, r["kampus"], j, r.get("jenjang","S1 (Sarjana)"))
+                info_j = get_ptn_info(r["kampus"], j, r.get("jenjang","S1 (Sarjana)"))
+                with st.expander(f"📚 {j}  —  Skor: {swj:.0f}  |  {plj}  ({pctj:.0f}%)"):
+                    ca2,cb2 = st.columns(2)
+                    with ca2:
+                        st.metric("Skor Tertimbang",f"{swj:.0f}")
+                        st.metric("Peluang",f"{pctj:.0f}% ({plj})")
+                        st.metric("Skor Aman",f"{info_j['mn']}–{info_j['mx']}")
+                        bobot_chips(j)
+                    with cb2:
+                        ch_bobot(j, key=f"r_bobot_alt_{idx}")
+
+    # ─── TAB 5: STRATEGI ───
+    with t5:
+        st.markdown('<div class="sec">🚀 Strategi Belajar Personal</div>', unsafe_allow_html=True)
+        ch_psiko(r["psiko"],r["konsist"],r["stab"], key="r_psiko_t5")
+        prog_bar("Kesiapan Mental",r["psiko"],"#3b6cb7")
+        prog_bar("Konsistensi Belajar",r["konsist"],"#1a8a4a")
+        prog_bar("Stabilitas Mental",r["stab"],"#7048c8")
+        st.markdown('<div class="sec">📌 Prioritas Subtes</div>', unsafe_allow_html=True)
+        ss = sorted(r["skor"].items(),key=lambda x:x[1])
+        lemah3 = ss[:3]; kuat2 = ss[-2:]
+        cp1,cp2 = st.columns(2)
+        with cp1:
+            il = "".join(f"<li><strong>{SUBTES_FULL[k]}</strong>: {v} → perlu +{max(0,750-v)} poin</li>" for k,v in lemah3)
+            st.markdown(f'<div class="al al-d"><h4>🔴 3 Subtes Perlu Fokus</h4><ul>{il}</ul></div>',unsafe_allow_html=True)
+        with cp2:
+            ik = "".join(f"<li><strong>{SUBTES_FULL[k]}</strong>: {v} ✅</li>" for k,v in kuat2)
+            st.markdown(f'<div class="al al-s"><h4>🟢 Kekuatan Akademik</h4><ul>{ik}</ul></div>',unsafe_allow_html=True)
+        st.markdown('<div class="sec">📋 Rencana Aksi</div>', unsafe_allow_html=True)
+        if r["sw"]>=r["info"]["mx"]:
+            st.markdown("""<div class="al al-s"><h4>🏆 Maintenance Mode</h4><ul>
+              <li>Tryout 1–2x/minggu untuk menjaga ketajaman</li>
+              <li>Review kesalahan kecil yang masih berulang</li>
+              <li>Fokus manajemen waktu dan kondisi mental</li>
+              <li>Jaga pola tidur 7–8 jam/malam</li></ul></div>""",unsafe_allow_html=True)
+        elif r["sw"]>=r["info"]["mn"]:
+            st.markdown(f"""<div class="al al-i"><h4>✅ Penguatan & Konsistensi</h4><ul>
+              <li>Target +{r['info']['mx']-r['sw']:.0f} poin untuk zona sangat aman</li>
+              <li>60% waktu pada {SUBTES_FULL[ss[0][0]]} (terlemah)</li>
+              <li>Tryout min. 2x/bulan + review mendalam</li>
+              <li>Simulasi 150 soal dalam 2.5 jam/sesi</li></ul></div>""",unsafe_allow_html=True)
+        else:
+            st.markdown(f"""<div class="al al-w"><h4>⚡ Intensifikasi Penuh</h4><ul>
+              <li>Target +{r['info']['mn']-r['sw']:.0f} poin — bertahap +{min(60,r['info']['mn']-r['sw']):.0f}/bulan</li>
+              <li>Belajar 4–5 jam/hari terstruktur</li>
+              <li>Tryout mingguan + analisis soal salah mendalam</li>
+              <li>Konsultasi tutor untuk subtes berbobot tinggi</li></ul></div>""",unsafe_allow_html=True)
+        st.markdown('<div class="sec">🧠 Tips Psikologis</div>', unsafe_allow_html=True)
+        tp1,tp2 = st.columns(2)
+        with tp1:
+            if r.get("fokus",3)<=2:
+                st.markdown('<div class="al al-d"><h4>🎯 Fokus Rendah</h4><ul><li>Pomodoro 25+5 mnt</li><li>Matikan notifikasi HP</li><li>Mulai sesi pendek 15 mnt</li></ul></div>',unsafe_allow_html=True)
+            if r.get("cemas",3)>=4:
+                st.markdown('<div class="al al-d"><h4>😰 Kecemasan Tinggi</h4><ul><li>Pernapasan 4-7-8 tiap pagi</li><li>Fokus proses bukan hasil</li><li>Tidur 7–8 jam/malam</li></ul></div>',unsafe_allow_html=True)
+        with tp2:
+            if r.get("distrak",3)>=4:
+                st.markdown('<div class="al al-d"><h4>📱 Distraksi Tinggi</h4><ul><li>Cold Turkey / Forest app</li><li>HP di ruangan lain</li><li>Reward setelah selesai sesi</li></ul></div>',unsafe_allow_html=True)
+            if r.get("review",3)<=2:
+                st.markdown('<div class="al al-w"><h4>📝 Review Soal Kurang</h4><ul><li>Review SETIAP soal salah</li><li>Buku catatan soal sulit</li></ul></div>',unsafe_allow_html=True)
+
+    # ─── TAB 6: RENCANA MINGGUAN ───
+    with t6:
+        st.markdown('<div class="sec">📅 Proyeksi Skor 8 Minggu ke Depan</div>', unsafe_allow_html=True)
+        ch_progress(r, key="r_prog_t6")
+        st.markdown('<div class="sec">📋 Detail Rencana Per Minggu</div>', unsafe_allow_html=True)
+        rencana = buat_rencana_mingguan(r, 8)
+        fase_clr = {"Fondasi":"#3b6cb7","Intensif":"#d4620a","Pemantapan":"#1a8a4a","Final":"#c8890a"}
+        for m in rencana:
+            clr = fase_clr.get(m["fase"],"#7048c8")
+            tasks_html = "".join(f'<div style="padding:.1rem 0;color:#3a4a65">• {t}</div>' for t in m["tasks"])
+            st.markdown(f"""<div class="week-card">
+              <div class="week-num" style="color:{clr}">MINGGU {m['minggu']} — {m['fase'].upper()}</div>
+              <div class="week-target">
+                🎯 Target skor: <strong style="color:{clr}">{m['target_skor']}</strong> &nbsp;|&nbsp; ⏰ {m['jam']}
+              </div>
+              <div class="week-tasks">{tasks_html}</div>
+            </div>""", unsafe_allow_html=True)
+        st.markdown('<div class="sec">Ringkasan Rencana 8 Minggu</div>', unsafe_allow_html=True)
+        df_r = pd.DataFrame([{
+            "Minggu": f"Minggu {m['minggu']}",
+            "Fase": m["fase"],
+            "Target Skor": m["target_skor"],
+            "Durasi Belajar": m["jam"],
+            "Fokus Utama": m["fokus"]
+        } for m in rencana])
+        st.dataframe(df_r, use_container_width=True, hide_index=True)
+
+    # ─── TAB 7: PDF ───
+    with t7:
+        st.markdown('<div class="sec">📄 Export Laporan ke PDF</div>', unsafe_allow_html=True)
+        st.markdown("""<div class="al al-i"><h4>Cara Menyimpan sebagai PDF</h4><ol>
+          <li>Klik tombol <strong>Generate & Download Laporan HTML</strong> di bawah</li>
+          <li>Buka file HTML yang terdownload di browser</li>
+          <li>Tekan <strong>Ctrl+P</strong> (Win) atau <strong>Cmd+P</strong> (Mac)</li>
+          <li>Pilih <strong>"Save as PDF"</strong> sebagai printer</li>
+          <li>Klik <strong>Save</strong></li>
+        </ol></div>""", unsafe_allow_html=True)
+        if st.button("📄  Generate & Download Laporan HTML", type="primary"):
+            html = generate_pdf(r)
+            b64  = base64.b64encode(html.encode()).decode()
+            fn   = f"skoria_{r.get('nama','').replace(' ','_')}.html"
+            st.markdown(f"""<a href="data:text/html;base64,{b64}" download="{fn}"
+              style="display:inline-block;background:linear-gradient(135deg,#3b6cb7,#2a4a8c);
+                     color:#ffffff;font-weight:700;padding:.6rem 1.4rem;border-radius:8px;
+                     text-decoration:none;font-family:'Sora',sans-serif;font-size:.9rem;margin-top:.5rem">
+              ⬇️ Download {fn}</a>""", unsafe_allow_html=True)
+        st.markdown('<div class="sec">Preview Ringkasan Laporan</div>', unsafe_allow_html=True)
+        pp1,pp2 = st.columns(2)
+        with pp1:
+            st.dataframe(pd.DataFrame([
+                {"Info": "Nama", "Detail": r.get("nama","—")},
+                {"Info": "Jurusan", "Detail": r["jurusan"]},
+                {"Info": "Kampus", "Detail": r["kampus"]},
+                {"Info": "Klaster", "Detail": r["info"]["lbl"]},
+                {"Info": "Skor Tertimbang", "Detail": f"{r['sw']:.0f} / 1000"},
+                {"Info": "Gap vs Minimum", "Detail": f"{r['gap']:+.0f}"},
+            ]), use_container_width=True, hide_index=True)
+        with pp2:
+            st.dataframe(pd.DataFrame([
+                {"Indikator": "Peluang Lolos", "Nilai": f"{r['ppct']:.0f}% ({r['pl']})"},
+                {"Indikator": "Kesiapan Mental", "Nilai": f"{r['psiko']:.0f}/100"},
+                {"Indikator": "Konsistensi", "Nilai": f"{r['konsist']:.0f}/100"},
+                {"Indikator": "Stabilitas", "Nilai": f"{r['stab']:.0f}/100"},
+                {"Indikator": "Risiko Underperform", "Nilai": f"{r['risk'][0]} {r['risk'][1]}"},
+            ]), use_container_width=True, hide_index=True)
+
+    # ── Footer ──
+    st.divider()
+    nb1,nb2,_ = st.columns([1,1,4])
+    with nb1:
+        if st.button("◀ Ubah Data"): st.session_state.page="survey"; st.session_state.step=1; st.rerun()
+    with nb2:
+        if st.button("🏠 Beranda"): st.session_state.page="home"; st.rerun()
+
+    st.markdown(f"""<div style="text-align:center;padding:1.4rem;background:var(--surf);
+      border-radius:var(--r);border:1px solid var(--border);margin-top:.8rem;
+      box-shadow:var(--shadow)">
+      <div style="font-family:'Sora',sans-serif;font-size:1.05rem;font-weight:800;color:#1a2540">
+        💪 {nama}, kamu pasti bisa!
+      </div>
+      <div style="color:#6a7a95;font-size:.82rem;margin-top:.3rem">
+        Konsistensi + strategi tepat = PTN impianmu pasti bisa diraih 🚀
+      </div>
+      <div style="color:#b0b8c8;font-size:.7rem;margin-top:.3rem">
+        🎯 SKORIA v4.0 — AI UTBK Intelligence · LightGBM + Data SNPMB 2025/2026 · S1 & D3 · Skor skala 200–1000
+      </div>
+    </div>""", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════
 def main():
-    page=st.session_state.page
-    if page=="home": page_home()
-    elif page=="survey": page_survey()
-    elif page=="result": page_result()
-    else: page_home()
+    render_nav()
+    {"home":page_home,"survey":page_survey,"result":page_result}[st.session_state.page]()
 
 if __name__=="__main__":
     main()
