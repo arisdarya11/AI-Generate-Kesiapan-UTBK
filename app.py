@@ -1321,66 +1321,41 @@ def page_home():
     </div>""", unsafe_allow_html=True)
 
     # ── CHANGE 3: Penjelasan fitur / hasil yang bisa didapat ──
-    st.markdown("""<div class="fitur-panel">
-      <div class="fitur-panel-title">🔍 Apa Saja yang Bisa Kamu Dapatkan dari SKORIA AI?</div>
-      <div class="fitur-grid-3">
-
-        <div class="fitur-item d1">
-          <span class="fitur-item-icon">📊</span>
-          <div class="fitur-item-title">Skor Tertimbang (TW)</div>
-          <div class="fitur-item-desc">Skor akhir yang dihitung berdasarkan 7 subtes TPS dengan bobot yang disesuaikan per program studi — persis seperti cara penilaian nyata UTBK.</div>
-        </div>
-
-        <div class="fitur-item d2">
-          <span class="fitur-item-icon">🏆</span>
-          <div class="fitur-item-title">4 Kategori Kesiapan</div>
-          <div class="fitur-item-desc">Status lolos dikelompokkan menjadi <strong>Tidak Aman · Berisiko · Aman · Sangat Aman</strong> lengkap dengan estimasi persentase peluang lolos.</div>
-        </div>
-
-        <div class="fitur-item d3">
-          <span class="fitur-item-icon">📏</span>
-          <div class="fitur-item-title">Gap vs Skor Minimum</div>
-          <div class="fitur-item-desc">Selisih skor kamu dengan batas minimum dan batas aman kampus/prodi target — kamu tahu persis berapa poin yang perlu ditingkatkan.</div>
-        </div>
-
-        <div class="fitur-item d4">
-          <span class="fitur-item-icon">🎯</span>
-          <div class="fitur-item-title">Rekomendasi Prodi Alternatif</div>
-          <div class="fitur-item-desc">Jika peluang masih kurang, SKORIA menampilkan prodi lain di kampus yang sama dan prodi serupa di kampus berbeda yang lebih sesuai skormu.</div>
-        </div>
-
-        <div class="fitur-item d5">
-          <span class="fitur-item-icon">🤖</span>
-          <div class="fitur-item-title">Strategi Belajar AI (LightGBM)</div>
-          <div class="fitur-item-desc">Model machine learning menganalisis kebiasaan & kondisi psikologismu lalu merekomendasikan strategi yang paling tepat dari 4 pendekatan berbeda.</div>
-        </div>
-
-        <div class="fitur-item d6">
-          <span class="fitur-item-icon">📅</span>
-          <div class="fitur-item-title">Rencana Belajar 8 Minggu</div>
-          <div class="fitur-item-desc">Jadwal belajar personal mingguan — Fondasi, Intensif, Pemantapan, hingga Final — dengan target skor per minggu dan tugas harian yang spesifik.</div>
-        </div>
-
-        <div class="fitur-item d1">
-          <span class="fitur-item-icon">📡</span>
-          <div class="fitur-item-title">Radar TPS vs Profil Ideal</div>
-          <div class="fitur-item-desc">Grafik radar interaktif membandingkan skormu dengan profil ideal prodi — langsung terlihat subtes mana yang perlu diperkuat lebih dulu.</div>
-        </div>
-
-        <div class="fitur-item d2">
-          <span class="fitur-item-icon">🧠</span>
-          <div class="fitur-item-title">Analisis Psikologis</div>
-          <div class="fitur-item-desc">Indikator Kesiapan Mental, Konsistensi Belajar, dan Stabilitas Mental yang membantumu memahami faktor non-akademik yang mempengaruhi performa UTBK.</div>
-        </div>
-
-        <div class="fitur-item d3">
-          <span class="fitur-item-icon">📄</span>
-          <div class="fitur-item-title">Export Laporan PDF</div>
-          <div class="fitur-item-desc">Seluruh hasil analisis — skor, gap, rekomendasi alternatif, dan rencana 8 minggu — bisa diunduh sebagai laporan HTML siap cetak menjadi PDF.</div>
-        </div>
-
-      </div>
-    </div>""", unsafe_allow_html=True)
+    fitur_items = [
+        ("📊", "d1", "Skor Tertimbang (TW)",
+         "Skor akhir yang dihitung berdasarkan 7 subtes TPS dengan bobot yang disesuaikan per program studi, persis seperti cara penilaian nyata UTBK."),
+        ("🏆", "d2", "4 Kategori Kesiapan",
+         "Status lolos dikelompokkan menjadi <b>Tidak Aman &middot; Berisiko &middot; Aman &middot; Sangat Aman</b> lengkap dengan estimasi persentase peluang lolos."),
+        ("📏", "d3", "Gap vs Skor Minimum",
+         "Selisih skor kamu dengan batas minimum dan batas aman kampus/prodi target &mdash; kamu tahu persis berapa poin yang perlu ditingkatkan."),
+        ("🎯", "d4", "Rekomendasi Prodi Alternatif",
+         "Jika peluang masih kurang, SKORIA menampilkan prodi lain di kampus yang sama dan prodi serupa di kampus berbeda yang lebih sesuai skormu."),
+        ("🤖", "d5", "Strategi Belajar AI (LightGBM)",
+         "Model machine learning menganalisis kebiasaan &amp; kondisi psikologismu lalu merekomendasikan strategi yang paling tepat dari 4 pendekatan berbeda."),
+        ("📅", "d6", "Rencana Belajar 8 Minggu",
+         "Jadwal belajar personal mingguan &mdash; Fondasi, Intensif, Pemantapan, hingga Final &mdash; dengan target skor per minggu dan tugas harian yang spesifik."),
+        ("📡", "d1", "Radar TPS vs Profil Ideal",
+         "Grafik radar interaktif membandingkan skormu dengan profil ideal prodi &mdash; langsung terlihat subtes mana yang perlu diperkuat lebih dulu."),
+        ("🧠", "d2", "Analisis Psikologis",
+         "Indikator Kesiapan Mental, Konsistensi Belajar, dan Stabilitas Mental yang membantumu memahami faktor non-akademik yang mempengaruhi performa UTBK."),
+        ("📄", "d3", "Export Laporan PDF",
+         "Seluruh hasil analisis &mdash; skor, gap, rekomendasi alternatif, dan rencana 8 minggu &mdash; bisa diunduh sebagai laporan HTML siap cetak menjadi PDF."),
+    ]
+    items_html = "".join(
+        f'<div class="fitur-item {d}">'
+        f'<span class="fitur-item-icon">{icon}</span>'
+        f'<div class="fitur-item-title">{title}</div>'
+        f'<div class="fitur-item-desc">{desc}</div>'
+        f'</div>'
+        for icon, d, title, desc in fitur_items
+    )
+    st.markdown(
+        f'<div class="fitur-panel">'
+        f'<div class="fitur-panel-title">&#128269; Apa Saja yang Bisa Kamu Dapatkan dari SKORIA AI?</div>'
+        f'<div class="fitur-grid-3">{items_html}</div>'
+        f'</div>',
+        unsafe_allow_html=True
+    )
 
     # Legenda 4 kategori
     st.markdown("""<div style="background:#fff;border:1px solid #e0e8f4;border-radius:12px;padding:1rem 1.4rem;margin-bottom:1.2rem;box-shadow:0 2px 12px rgba(30,60,140,.08)">
