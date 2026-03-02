@@ -1,26 +1,11 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import pickle
-import os
-import base64
-import json
-from datetime import datetime
+import pickle, os, base64, datetime, json
 from typing import Dict, Tuple, List
 import plotly.graph_objects as go
 import plotly.express as px
 
-def get_greeting():
-    now = datetime.now()
-    hour = now.hour
-    if 5 <= hour < 11:
-        return "Selamat pagi"
-    elif 11 <= hour < 15:
-        return "Selamat siang"
-    elif 15 <= hour < 18:
-        return "Selamat sore"
-    else:
-        return "Selamat malam"
 # ══════════════════════════════════════════════════════════
 # PAGE CONFIG
 # ══════════════════════════════════════════════════════════
@@ -4227,5 +4212,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-st.markdown(f"### {get_greeting()}, selamat datang di AI UTBK Readiness Dashboard 👋")
