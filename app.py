@@ -1,3 +1,21 @@
+# =========================
+# DYNAMIC GREETING BASED ON TIME
+# =========================
+from datetime import datetime
+
+def get_greeting():
+    now = datetime.now()
+    hour = now.hour
+
+    if 5 <= hour < 11:
+        return "Selamat pagi"
+    elif 11 <= hour < 15:
+        return "Selamat siang"
+    elif 15 <= hour < 18:
+        return "Selamat sore"
+    else:
+        return "Selamat malam"
+
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -4212,3 +4230,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+st.markdown(f"### {get_greeting()}, selamat datang di AI UTBK Readiness Dashboard 👋")
