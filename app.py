@@ -1,6 +1,3 @@
-# =========================
-# DYNAMIC GREETING BASED ON TIME
-# =========================
 from datetime import datetime
 
 def get_greeting():
